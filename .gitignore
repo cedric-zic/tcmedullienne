@@ -1,0 +1,16 @@
+# Secrets et identifiants — jamais de commit
+**/secrets_local.py
+**/config_local.py
+**/cles_authenticite.py
+**/*_local.py
+
+# Fichiers de travail
+logs/
+**/*.log
+__pycache__/
+*.pyc
+
+# Données réelles (à garder hors Git)
+*.ods
+*.xlsx
+# ... sauf si tu veux versionner des modèles .ods vierges → ajuste
