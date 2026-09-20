@@ -69,10 +69,36 @@ sont modifiables en tête de `script_recus.py`.
   ```
   (même format que `notif-inscriptions/secrets_local.py`)
 
-## Contenu dynamique par formule (phase 2 — à venir)
+## Contenu dynamique par formule (phase 2 — implémenté)
 
-Une feuille dédiée de l'ODS (`Textes_formules`) associera chaque formule à
-2 à 5 éléments de contenu, utilisés par le mail. Détails à définir.
+Une feuille dédiée de l'ODS, **`Textes_formules`**, associe chaque formule
+à 2 à 5 éléments de contenu insérés dans le mail. Structure (une ligne par
+formule, un élément par colonne) :
+
+| | A (Formule) | B (Élément 1) | C (Élément 2) | D (Élément 3) | E | F |
+|---|---|---|---|---|---|---|
+| 1 | Formule | Élément 1 | Élément 2 | Élément 3 | Élément 4 | Élément 5 |
+| 2 | Jeune compétition | l'adhésion au club | la licence FFT | les cours avec un professeur diplômé | | |
+| 3 | Adulte loisir | l'adhésion au club | l'accès aux créneaux libres | | | |
+| 4 | Adulte illimité | l'adhésion au club | l'accès illimité aux créneaux | la licence FFT | | |
+
+Règles :
+- le nom de la formule (colonne A) doit être **identique** à la colonne G de
+  `Liste_adherents` ;
+- la ligne 1 (en-têtes) est ignorée automatiquement ;
+- de 1 à 5 éléments, colonnes B à F — les colonnes vides sont ignorées ;
+- le mail insère : « Cette cotisation inclut : X, Y et Z. » (grammaire
+  française : « et » avant le dernier élément) ;
+- **formule absente de la feuille** → le paragraphe est omis, le mail reste
+  celui de la phase 1 (générique) ;
+- **feuille absente de l'ODS** → idem, tout le monde reçoit le mail générique
+  (le script logge l'information).
+
+L'ajout d'une formule ou d'un élément se fait donc directement dans
+LibreOffice, sans toucher au code.
+
+Le texte d'introduction est modifiable via la constante `TEXTE_INTRO_CONTENU`
+de `script_recus.py`.
 
 ## ID d'authenticité — principe
 

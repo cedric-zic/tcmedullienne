@@ -89,6 +89,7 @@ CORPS_MAIL = (
     "\n"
     "Vous trouverez en pièce jointe votre reçu de paiement pour la saison {saison}. "
     "Cet envoi fait suite à votre demande.\n"
+    "{contenu_formule}"
     "\n"
     "Si vous avez besoin d'un complément ou d'une correction, n'hésitez pas à nous "
     "répondre, nous restons à votre disposition.\n"
@@ -97,6 +98,15 @@ CORPS_MAIL = (
     "Cédric Meschin\n"
     "Secrétaire - TC La Médullienne"
 )
+
+# Feuille de correspondance formule -> elements de contenu (phase 2).
+# Structure (proposition A) : une ligne par formule,
+#   colonne A = nom de la formule (identique a la colonne G de Liste_adherents),
+#   colonnes B, C, D, E, F = elements inclus dans la cotisation (2 a 5 par formule).
+# Le mail insere : "Cette cotisation inclut : <elem1>, <elem2> et <elem3>."
+# Formule absente de la feuille -> paragraphe omis (mail generique phase 1).
+FEUILLE_TEXTES_FORMULES = "Textes_formules"
+TEXTE_INTRO_CONTENU = "Cette cotisation inclut : "
 
 
 def generer_id_authenticite(nom, prenom, date_recu, montant, saison, timestamp):
@@ -275,10 +285,62 @@ def generer_recus(mode_test=False):
             print(f"Erreur pour {prenom} {nom} : {e}")
 
 
-def construire_mail(nom, prenom, saison):
+def charger_textes_formules():
+    """
+    Charge la feuille Textes_formules de l'ODS.
+
+    Retourne {formule: [elements...]} ou un dict vide si la feuille
+    n'existe pas encore (mail generique).
+    """
+    doc = ezodf.opendoc(ods_path())
+    noms_feuilles = [s.name for s in doc.sheets]
+    if FEUILLE_TEXTES_FORMULES not in noms_feuilles:
+        logger.info(f"Feuille '{FEUILLE_TEXTES_FORMULES}' absente : contenu par formule desactive.")
+        return {}
+    feuille = doc.sheets[FEUILLE_TEXTES_FORMULES]
+    correspondance = {}
+    # Ignorer une eventuelle ligne d'en-tetes (ligne 1)
+    premiere_ligne = 1 if feuille.nrows() > 1 else 0
+    for idx in range(premiere_ligne, feuille.nrows()):
+        try:
+            formule = str(feuille[0, idx].value or "").strip()
+        except IndexError:
+            break  # fin reelle de la feuille (lignes non ecrites)
+        if not formule:
+            continue
+        elements = []
+        for col in range(1, 6):  # colonnes B a F : jusqu'a 5 elements
+            try:
+                element = str(feuille[col, idx].value or "").strip()
+            except IndexError:
+                break
+            if element:
+                elements.append(element)
+        if elements:
+            correspondance[formule] = elements
+    logger.info(f"{len(correspondance)} formule(s) chargees depuis '{FEUILLE_TEXTES_FORMULES}'.")
+    return correspondance
+
+
+def formater_contenu_formule(elements):
+    """Formate la liste d'elements en phrase pour le mail."""
+    if not elements:
+        return ""
+    if len(elements) == 1:
+        liste = elements[0]
+    elif len(elements) == 2:
+        liste = f"{elements[0]} et {elements[1]}"
+    else:
+        liste = ", ".join(elements[:-1]) + f" et {elements[-1]}"
+    return f"\n{TEXTE_INTRO_CONTENU}{liste}.\n"
+
+
+def construire_mail(nom, prenom, saison, elements_formule=None):
     """Construit le mail (sujet + corps) pour un adhérent."""
     sujet = SUJET_MAIL.format(saison=saison)
-    corps = CORPS_MAIL.format(prenom=prenom, nom=nom, saison=saison)
+    contenu_formule = formater_contenu_formule(elements_formule or [])
+    corps = CORPS_MAIL.format(prenom=prenom, nom=nom, saison=saison,
+                              contenu_formule=contenu_formule)
     return sujet, corps
 
 
@@ -307,6 +369,7 @@ def envoyer_recus(mode_test=False):
     import time
     currentYear = date.today().year
     sportiveYear = f"{currentYear}/{currentYear + 1}"
+    textes_formules = charger_textes_formules()
 
     lignes = lire_lignes_ods()
     a_envoyer = [l for l in lignes if l[5] == STATUT_ENCOURS]
@@ -343,8 +406,10 @@ def envoyer_recus(mode_test=False):
 
     if mode_test:
         print("Mode test : aucun envoi, aucune modification de l'ODS.")
-        sujet, corps = construire_mail("DUPONT", "Jean", sportiveYear)
-        print("\n--- Aperçu du mail ---")
+        exemple_formule = complets[0][0][3]
+        elements = textes_formules.get(exemple_formule, [])
+        sujet, corps = construire_mail("DUPONT", "Jean", sportiveYear, elements)
+        print(f"\n--- Aperçu du mail (formule : {exemple_formule}) ---")
         print(f"Sujet : {sujet}\n")
         print(corps)
         return
@@ -376,8 +441,9 @@ def envoyer_recus(mode_test=False):
     print()
     total = len(selection)
     for position, (ligne, pdf_path) in enumerate(selection, 1):
-        (idx, nom, prenom, _, email, _, montant) = ligne
-        sujet, corps = construire_mail(nom, prenom, sportiveYear)
+        (idx, nom, prenom, formule, email, _, montant) = ligne
+        elements = textes_formules.get(formule, [])
+        sujet, corps = construire_mail(nom, prenom, sportiveYear, elements)
         try:
             envoyer_mail(email, sujet, corps, pdf_path)
             maj_statut_recu(idx, STATUT_TRAITE)
