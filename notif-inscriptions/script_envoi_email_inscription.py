@@ -49,11 +49,33 @@ except ImportError:
 
 SOURCE_FILE = r"P:/2026-2027/Adhérents/gestion_adherents_2026-2027.ods"
 ATTACHMENTS_DIR = r"P:/2026-2027/Adhérents/Fiches_inscriptions"
-LOGO_PATH = r"P:/2025-2026/Bureau/Documents divers/logo_tcmedullienne_2026_transparent_160px.png"  # Remplacez par votre chemin
 
-# --- NOUVELLES CONSTANTES POUR LES TAMPONS ---
-TAMPON_ANNULE_PATH = r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Annulé_transparent.png"
-TAMPON_PROF_PATH = r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Professeur_transparent.png"
+ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+
+def resoudre_image(chemin_defaut, *noms_assets):
+    for nom in noms_assets:
+        chemin = os.path.join(ASSETS_DIR, nom)
+        if os.path.exists(chemin):
+            return chemin
+    return chemin_defaut
+
+LOGO_PATH = resoudre_image(
+    r"P:/2025-2026/Bureau/Documents divers/logo_tcmedullienne_2026_transparent_160px.png",
+    "logo_tcmedullienne.png",
+    "logo_tcmedullienne_2026_transparent_160px.png",
+)
+
+TAMPON_ANNULE_PATH = resoudre_image(
+    r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Annulé_transparent.png",
+    "tampon_annule.png",
+    "tampon_Annulé_transparent.png",
+)
+
+TAMPON_PROF_PATH = resoudre_image(
+    r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Professeur_transparent.png",
+    "tampon_professeur.png",
+    "tampon_Professeur_transparent.png",
+)
 
 BATCH_SIZE = 1
 LIMIT_PER_DAY = 15  # adaptez à votre limite réelle (15-20)
