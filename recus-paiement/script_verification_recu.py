@@ -45,34 +45,57 @@ def main():
     nom = input("Nom de l'adhérent : ").strip()
     prenom = input("Prénom de l'adhérent : ").strip()
     date_saisie = input("Date du reçu (JJMMAAAA ou AAAAMMJJ) : ").strip()
-    if len(date_saisie) == 8 and date_saisie[:2] in ("19", "20"):
-        date_recu = date_saisie  # déjà au format AAAAMMJJ
-    else:
-        # JJMMAAAA -> AAAAMMJJ
-        try:
-            date_recu = datetime.strptime(date_saisie, "%d%m%Y").strftime("%Y%m%d")
-        except ValueError:
-            print("❌ Date invalide. Formats acceptés : JJMMAAAA ou AAAAMMJJ.")
-            sys.exit(1)
-
-    # Clé demandée de manière sécurisée (saisie masquée).
-    # C'est la clé de la saison du reçu : le script fonctionne sur n'importe
-    # quel poste, sans fichier cles_authenticite.py local.
-    cle_str = getpass.getpass("Entrez la clé (celle de la saison du reçu): ")
-    cle = hashlib.sha256(cle_str.encode()).digest()
+    date_recu = None
+    if len(date_saisie) == 8 and date_saisie.isdigit():
+        annee = int(date_saisie[:4])
+        if 1900 <= annee <= 2100:
+            try:
+                # AAAAMMJJ (ex. 20260920)
+                datetime.strptime(date_saisie, "%Y%m%d")
+                date_recu = date_saisie
+            except ValueError:
+                pass
+        if date_recu is None:
+            try:
+                # JJMMAAAA (ex. 20092026 = 20/09/2026)
+                date_recu = datetime.strptime(date_saisie, "%d%m%Y").strftime("%Y%m%d")
+            except ValueError:
+                pass
+    if date_recu is None:
+        print("❌ Date invalide. Formats acceptés : JJMMAAAA ou AAAAMMJJ.")
+        sys.exit(1)
 
     montant = input("Montant du reçu (en euros, ex. 175) : ").strip()
     saison = input("Saison sportive (ex. 2026/2027) : ").strip()
 
-    timestamp = verifier_id(encrypted_id, nom, prenom, date_recu, montant, saison, cle)
-    if timestamp:
-        date_creation = datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M:%S")
-        print(f"✅ Identifiant valide. Le document est un original.")
-        print(f"   Reçu généré le {date_creation} pour {prenom.upper()} {nom.upper()}")
-        print(f"   Saison {saison}, montant {montant}€.")
-    else:
-        print(f"❌ ID invalide. Le document ne semble pas être un original. "
-              f"Vérifiez l'ID, le nom, le prénom, la date, le montant et la saison saisis.")
+    # Clé demandée EN DERNIER, de manière sécurisée (saisie masquée).
+    # C'est la clé de la saison du reçu : le script fonctionne sur n'importe
+    # quel poste, sans fichier cles_authenticite.py local.
+    # En cas d'échec, on propose de ressaisir uniquement la clé : les autres
+    # informations déjà saisies sont conservées.
+    MAX_TENTATIVES = 3
+    for tentative in range(1, MAX_TENTATIVES + 1):
+        cle_str = getpass.getpass("Entrez la clé (celle de la saison du reçu): ")
+        cle = hashlib.sha256(cle_str.encode()).digest()
+
+        timestamp = verifier_id(encrypted_id, nom, prenom, date_recu, montant, saison, cle)
+        if timestamp:
+            date_creation = datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M:%S")
+            print(f"✅ Identifiant valide. Le document est un original.")
+            print(f"   Reçu généré le {date_creation} pour {prenom.upper()} {nom.upper()}")
+            print(f"   Saison {saison}, montant {montant}€.")
+            sys.exit(0)
+
+        if tentative < MAX_TENTATIVES:
+            print(f"❌ ID invalide avec cette clé (tentative {tentative}/{MAX_TENTATIVES}).")
+            reponse = input("Nouvelle tentative de saisie de la clé ? (O/n) : ").strip().lower()
+            if reponse == "n":
+                break
+        else:
+            print(f"❌ ID invalide après {MAX_TENTATIVES} tentatives.")
+
+    print(f"Le document ne semble pas être un original. Avant de conclure, vérifiez "
+          f"l'ID, le nom, le prénom, la date, le montant et la saison saisis.")
 
 
 if __name__ == "__main__":
