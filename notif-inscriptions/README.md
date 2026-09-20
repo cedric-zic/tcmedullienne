@@ -13,10 +13,10 @@ Gère trois flux :
 
 ```bash
 # Mode test : génère un PDF par adhérent, n'envoie rien
-python script_envoi_email_v9.py --test
+python script_envoi_email_inscription.py --test
 
 # Envoi réel
-python script_envoi_email_v9.py
+python script_envoi_email_inscription.py
 ```
 
 ## Configuration obligatoire : `secrets_local.py`

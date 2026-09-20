@@ -11,7 +11,6 @@ import ezodf
 from ezodf import Cell  # Ajoute cette ligne
 from fpdf import FPDF
 #from email.mime.image import MIMEImage
-import getpass  # ajout pour la demande de mot de passe
 import io               # Pour gérer les flux de bytes
 import logging
 import os
@@ -30,12 +29,6 @@ from weasyprint import HTML
 logging.getLogger('weasyprint').setLevel(logging.ERROR)  # ✅ Désactive INFO et WARNING
 logging.getLogger("pymupdf").setLevel(logging.CRITICAL)  # Désactive les logs MuPDF
 
-# # --- CONFIGURATION POUR GMAIL ---
-# SMTP_SERVER = "smtp.gmail.com"
-# SMTP_PORT = 587
-# SMTP_USER = "cedric.tclm@gmail.com"
-# # SMTP_PASSWORD = getpass.getpass("Entrez votre mot de passe GMail (le mot de passe ne s'affichera pas) : ")  # Demande le mot de passe (masqué)
-# SMTP_PASSWORD = "ytlm akig wpnq wmsd "
 try:
     from secrets_local import (
         SMTP_SERVER,
