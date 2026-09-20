@@ -16,11 +16,9 @@ except ImportError:
     raise SystemExit(
         "❌ Fichier 'cles_authenticite.py' introuvable.\n"
         "Copiez 'cles_authenticite.py.example' en 'cles_authenticite.py' "
-        "et renseignez la clé secrète.\n"
+        "et renseignez les clés par saison.\n"
         "Ce fichier est exclu par le .gitignore : ne le commitez jamais."
     )
-
-CLE = calculer_cle()
 
 
 def generer_id_authenticite(nom, prenom, date_recu, montant, saison, timestamp):
@@ -31,12 +29,14 @@ def generer_id_authenticite(nom, prenom, date_recu, montant, saison, timestamp):
     - AAAAMMJJ : date du reçu
     - TTTTTTTTTT : timestamp de génération
     - signature : HMAC-SHA256 tronqué, calculé sur
-      nom|prénom|date|montant|saison|timestamp avec la clé locale.
+      nom|prénom|date|montant|saison|timestamp avec la clé locale
+      de la saison correspondante.
       Toute modification d'un seul caractère (ID, nom, prénom, date,
       montant ou saison) invalide la signature.
     """
+    cle = calculer_cle(saison)
     message = f"{nom.upper()}|{prenom.upper()}|{date_recu}|{montant}|{saison}|{timestamp}".encode()
-    signature = hmac.new(CLE, message, hashlib.sha256).hexdigest()[:16]
+    signature = hmac.new(cle, message, hashlib.sha256).hexdigest()[:16]
     return f"{date_recu}.{timestamp}.{signature}"
 
 

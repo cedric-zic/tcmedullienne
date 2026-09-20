@@ -39,18 +39,35 @@ ne permet rien, seule la clé secrète permet de forger un ID valide.
 
 ## Configuration obligatoire : `cles_authenticite.py`
 
-La génération lit la clé dans `cles_authenticite.py`, à créer à côté des
-scripts :
+Les clés sont gérées **une par saison sportive**, dans `cles_authenticite.py`,
+à créer à côté des scripts :
 
 ```bash
 cp cles_authenticite.py.example cles_authenticite.py
-# puis éditer et renseigner CLE_AUTHENTICITE
+# puis éditer et renseigner CLES_PAR_SAISON
+```
+
+```python
+CLES_PAR_SAISON = {
+    "2026/2027": "clé-secrète-longue-et-aléatoire",
+    # "2027/2028": "nouvelle-clé-à-chaque-saison",
+}
 ```
 
 Ce fichier est exclu par le `.gitignore` et **ne doit jamais être committé**.
 
-La vérification, elle, demande la clé en saisie masquée (`getpass`) : elle
-fonctionne sur n'importe quel poste, sans fichier local.
+Puisqu'une clé est associée à chaque saison et que la saison est signée dans
+l'ID, la rotation de clé est naturelle : changer de clé pour la saison
+suivante n'invalide pas les reçus des saisons précédentes, qui restent
+vérifiables avec leur clé d'origine. **Conservez ce fichier d'une saison sur
+l'autre** (en lieu sûr, hors Git) : c'est lui qui permet de revérifier les
+anciens reçus.
+
+La génération s'arrête avec un message explicite si aucune clé n'est définie
+pour la saison en cours.
+
+La vérification, elle, demande la clé de la saison en saisie masquée
+(`getpass`) : elle fonctionne sur n'importe quel poste, sans fichier local.
 
 ## Usage
 

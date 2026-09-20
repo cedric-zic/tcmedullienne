@@ -56,9 +56,9 @@ def main():
             sys.exit(1)
 
     # Clé demandée de manière sécurisée (saisie masquée).
-    # C'est le seul secret nécessaire : le script fonctionne sur n'importe quel
-    # poste, sans fichier cles_authenticite.py local.
-    cle_str = getpass.getpass("Entrez la clé: ")
+    # C'est la clé de la saison du reçu : le script fonctionne sur n'importe
+    # quel poste, sans fichier cles_authenticite.py local.
+    cle_str = getpass.getpass("Entrez la clé (celle de la saison du reçu): ")
     cle = hashlib.sha256(cle_str.encode()).digest()
 
     montant = input("Montant du reçu (en euros, ex. 175) : ").strip()
