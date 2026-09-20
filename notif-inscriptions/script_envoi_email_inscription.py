@@ -63,9 +63,9 @@ TAMPON_ANNULE_PATH = r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Annul
 TAMPON_PROF_PATH = r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Professeur_transparent.png"
 
 BATCH_SIZE = 1
-LIMIT_PER_DAY = 20  # adaptez à votre limite réelle (15-20)
+LIMIT_PER_DAY = 15  # adaptez à votre limite réelle (15-20)
 INTER_EMAIL_DELAY = 45   # secondes entre chaque email (envoi lissé, pas de pics)
-SUBJECT = "[TC La Medullienne] Inscription {prenom} {nom} - Saison 2026/2027"
+SUBJECT = "TC La Medullienne - Inscription {prenom} {nom} - Saison 2026/2027"
 EMAIL_SENT_COLUMN = 20  # Colonne T (20ème colonne)
 DATE_ENVOI_COLUMN = 21 # Colonne U
 FICHE_VALIDEE_COLUMN = 16  # Colonne P (16ème colonne)
