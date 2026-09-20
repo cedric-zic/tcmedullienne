@@ -23,18 +23,19 @@ except ImportError:
 CLE = calculer_cle()
 
 
-def generer_id_authenticite(nom, prenom, date_recu, timestamp):
+def generer_id_authenticite(nom, prenom, date_recu, montant, saison, timestamp):
     """
     Génère l'ID d'authenticité d'un reçu.
 
     Format : AAAAMMJJ.TTTTTTTTTT.<signature>
     - AAAAMMJJ : date du reçu
     - TTTTTTTTTT : timestamp de génération
-    - signature : HMAC-SHA256 tronqué, calculé sur nom|prénom|date|timestamp
-      avec la clé locale. Toute modification d'un seul caractère
-      (ID, nom, prénom ou date) invalide la signature.
+    - signature : HMAC-SHA256 tronqué, calculé sur
+      nom|prénom|date|montant|saison|timestamp avec la clé locale.
+      Toute modification d'un seul caractère (ID, nom, prénom, date,
+      montant ou saison) invalide la signature.
     """
-    message = f"{nom.upper()}|{prenom.upper()}|{date_recu}|{timestamp}".encode()
+    message = f"{nom.upper()}|{prenom.upper()}|{date_recu}|{montant}|{saison}|{timestamp}".encode()
     signature = hmac.new(CLE, message, hashlib.sha256).hexdigest()[:16]
     return f"{date_recu}.{timestamp}.{signature}"
 
@@ -88,9 +89,9 @@ def main():
         font.name = 'Calibri'
         font.size = Pt(14)
 
-        # Générer l'ID unique (HMAC sur nom, prénom, date et timestamp)
+        # Générer l'ID unique (HMAC sur nom, prénom, date, montant, saison, timestamp)
         timestamp = int(datetime.now().timestamp())
-        unique_id = generer_id_authenticite(nom, prenom, date_recu, timestamp)
+        unique_id = generer_id_authenticite(nom, prenom, date_recu, montant, sportiveYear, timestamp)
 
         document.add_paragraph("")
         document.add_paragraph("")

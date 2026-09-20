@@ -21,14 +21,18 @@ AAAAMMJJ.TTTTTTTTTT.<signature-hex-16>
 
 - `AAAAMMJJ` : date du reçu (identique à la date affichée sur le document)
 - `TTTTTTTTTT` : timestamp de génération
-- `signature` : HMAC-SHA256 de `NOM|PRÉNOM|AAAAMMJJ|TTTTTTTTTT` avec la clé
-  secrète du club, tronqué à 16 caractères hexadécimaux
+- `signature` : HMAC-SHA256 de `NOM|PRÉNOM|AAAAMMJJ|MONTANT|SAISON|TTTTTTTTTT`
+  avec la clé secrète du club, tronqué à 16 caractères hexadécimaux
 
 **Propriété clé :** la validation utilise `hmac.compare_digest` (comparaison
-temps constant). Si un seul caractère change — dans l'ID, le nom, le prénom
-ou la date saisis — la signature ne correspond plus et le reçu est déclaré
-invalide. Contrairement à l'ancien système (timestamp chiffré AES-ECB), il
-n'existe plus de cas où un ID altéré passe la vérification.
+temps constant). Si un seul caractère change — dans l'ID, le nom, le prénom,
+la date, le montant ou la saison saisis — la signature ne correspond plus et
+le reçu est déclaré invalide. Contrairement à l'ancien système (timestamp
+chiffré AES-ECB), il n'existe plus de cas où un ID altéré passe la vérification.
+
+Le montant et la saison sportive sont inclus dans la signature : un reçu dont
+le montant ou la saison affichée serait modifié (ex. réutiliser un reçu de la
+saison précédente pour l'année suivante) est détecté automatiquement.
 
 La clé de signature est **publique par opposition** : connaître l'algorithme
 ne permet rien, seule la clé secrète permet de forger un ID valide.
@@ -70,8 +74,9 @@ regénérer le même reçu.
 python script_verification_recu.py 20260920.1758371234.a1b2c3d4e5f60789
 ```
 
-Le script demande : nom, prénom, date du reçu (JJMMAAAA ou AAAAMMJJ) et la
-clé (saisie masquée). Répond ✅ original ou ❌ invalide.
+Le script demande : nom, prénom, date du reçu (JJMMAAAA ou AAAAMMJJ),
+montant, saison sportive et la clé (saisie masquée). Répond ✅ original ou
+❌ invalide.
 
 ## Dépendances
 

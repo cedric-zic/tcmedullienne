@@ -5,15 +5,16 @@ import hmac
 from datetime import datetime
 
 
-def verifier_id(encrypted_id, nom, prenom, date_recu, cle):
+def verifier_id(encrypted_id, nom, prenom, date_recu, montant, saison, cle):
     """
     Vérifie l'ID d'authenticité d'un reçu.
 
     L'ID est au format : AAAAMMJJ.TTTTTTTTTT.<signature>
-    où la signature = HMAC-SHA256(nom|prénom|date|timestamp, clé) tronqué à 16 hex.
+    où la signature = HMAC-SHA256(nom|prénom|date|montant|saison|timestamp, clé)
+    tronqué à 16 hex.
 
-    La vérification échoue dès qu'un seul caractère de l'ID, du nom,
-    du prénom ou de la date ne correspond pas.
+    La vérification échoue dès qu'un seul caractère de l'ID, du nom, du
+    prénom, de la date, du montant ou de la saison ne correspond pas.
     """
     parties = encrypted_id.strip().split(".")
     if len(parties) != 3:
@@ -21,7 +22,7 @@ def verifier_id(encrypted_id, nom, prenom, date_recu, cle):
     date_id, timestamp_id, signature_id = parties
     if date_id != date_recu:
         return None
-    message = f"{nom.upper()}|{prenom.upper()}|{date_id}|{timestamp_id}".encode()
+    message = f"{nom.upper()}|{prenom.upper()}|{date_id}|{montant}|{saison}|{timestamp_id}".encode()
     signature_attendue = hmac.new(cle, message, hashlib.sha256).hexdigest()[:16]
     if not hmac.compare_digest(signature_attendue, signature_id):
         return None
@@ -60,14 +61,18 @@ def main():
     cle_str = getpass.getpass("Entrez la clé: ")
     cle = hashlib.sha256(cle_str.encode()).digest()
 
-    timestamp = verifier_id(encrypted_id, nom, prenom, date_recu, cle)
+    montant = input("Montant du reçu (en euros, ex. 175) : ").strip()
+    saison = input("Saison sportive (ex. 2026/2027) : ").strip()
+
+    timestamp = verifier_id(encrypted_id, nom, prenom, date_recu, montant, saison, cle)
     if timestamp:
         date_creation = datetime.fromtimestamp(timestamp).strftime("%d/%m/%Y %H:%M:%S")
         print(f"✅ Identifiant valide. Le document est un original.")
-        print(f"   Reçu généré le {date_creation} pour {prenom.upper()} {nom.upper()}.")
+        print(f"   Reçu généré le {date_creation} pour {prenom.upper()} {nom.upper()}")
+        print(f"   Saison {saison}, montant {montant}€.")
     else:
         print(f"❌ ID invalide. Le document ne semble pas être un original. "
-              f"Vérifiez l'ID, le nom, le prénom et la date saisis.")
+              f"Vérifiez l'ID, le nom, le prénom, la date, le montant et la saison saisis.")
 
 
 if __name__ == "__main__":
