@@ -1,0 +1,11 @@
+# cles_authenticite.py.example — Template de la clé locale
+# COPIER ce fichier en "cles_authenticite.py" (même dossier) et renseigner la clé.
+# cles_authenticite.py est exclu par le .gitignore : NE JAMAIS LE COMMITTER.
+
+CLE_AUTHENTICITE = "remplacer-par-une-clé-secrète-longue-et-aléatoire"
+
+
+def calculer_cle():
+    """Dérive la clé HMAC-SHA256 (32 octets) à partir du secret local."""
+    import hashlib
+    return hashlib.sha256(CLE_AUTHENTICITE.encode()).digest()
