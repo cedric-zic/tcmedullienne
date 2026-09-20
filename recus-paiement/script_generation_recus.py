@@ -132,7 +132,7 @@ def main():
         last_paragraph = document.paragraphs[-1]
         last_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         # Ajouter l'ID unique
-        p = document.add_paragraph(f"{unique_id}")
+        p = document.add_paragraph(f"ID d'authentification: {unique_id}")
         p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.RIGHT
         for run in p.runs:
             run.font.size = Pt(6)
