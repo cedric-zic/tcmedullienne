@@ -1,7 +1,8 @@
 # sync_macros.ps1 - Synchronise les macros Python LibreOffice avec le depot Git
+# Le depot est la source de verite : on edite le fichier ICI, puis on deploie avec -Pull.
 # Usage :
-#   .\sync_macros.ps1 -Push   # copie les macros du profil LibreOffice vers le depot
-#   .\sync_macros.ps1 -Pull   # restaure les macros du depot vers le profil LibreOffice
+#   .\sync_macros.ps1 -Pull   # deploie macros\macros_inscriptions.py vers le profil LibreOffice
+#   .\sync_macros.ps1 -Push   # (rare) recupere le fichier du profil LibreOffice vers le depot
 param(
     [Parameter(Mandatory = $true, ParameterSetName = "Push")]
     [switch]$Push,
@@ -13,12 +14,11 @@ $ErrorActionPreference = "Stop"
 
 # --- Configuration ---
 # Macros Python LibreOffice (niveau utilisateur) :
-# %APPDATA%\LibreOffice\4\user\Scripts\python\  (un fichier .py par module de macros)
+# %APPDATA%\LibreOffice\4\user\Scripts\python\  (un fichier .py par module)
 $UserProfile = Join-Path $env:APPDATA "LibreOffice\4\user\Scripts\python"
 $RepoDir     = "$PSScriptRoot\macros"
 
 # Fichier de macros gere par ce depot.
-# IMPORTANT : doit correspondre au nom du fichier present dans le profil LibreOffice.
 $MacroFile  = "macros_inscriptions.py"
 
 if ($Push) {
@@ -59,6 +59,21 @@ if ($Pull -and (Test-Path $dest)) {
 Copy-Item -Path $source -Destination $dest -Force
 Write-Host ""
 Write-Host "Termine : $dest" -ForegroundColor Green
+
+# Apres un PULL : detecter d'anciens fichiers de macros qui coexisteraient
+# dans le profil (sinon les macros apparaissent en double dans LibreOffice).
 if ($Pull) {
+    $autres = Get-ChildItem -Path $UserProfile -Filter *.py -File |
+        Where-Object { $_.Name -ne $MacroFile }
+    if ($autres) {
+        Write-Host ""
+        Write-Host "ATTENTION : d'autres fichiers de macros existent dans le profil :" -ForegroundColor Yellow
+        foreach ($f in $autres) {
+            Write-Host "  - $($_.FullName)"
+            Write-Host "      Supprime-le s'il s'agit d'une ancienne version (ex. macros_libreoffice_python.py),"
+            Write-Host "      sinon ses macros apparaitront en double dans LibreOffice."
+        }
+    }
+    Write-Host ""
     Write-Host "Redemarre LibreOffice pour que les macros soient prises en compte."
 }

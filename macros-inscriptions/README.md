@@ -15,18 +15,25 @@ Le fichier `.ods` lui-même n'est **pas versionné** (données réelles, exclu p
 Les macros Python LibreOffice sont stockées dans le profil utilisateur :
 `%APPDATA%\LibreOffice\4\user\Scripts\python\` (un fichier `.py` par module).
 
-⚠️ Le nom du fichier versionné (`macros/macros_inscriptions.py`) doit correspondre
-au nom du fichier réellement présent dans le profil LibreOffice. Si ton fichier
-s'appelle autrement, ajuste `$MacroFile` dans `sync_macros.ps1`.
+**Le dépôt est la source de vérité.** Les modifications se font directement dans
+`macros/macros_inscriptions.py` (éditeur externe — LibreOffice n'a pas d'éditeur
+Python intégré), puis on déploie vers le profil avec `-Pull`. Le `-Push` ne sert
+qu'à récupérer une version modifiée directement dans le profil (rare).
 
-### Récupérer les macros dans le dépôt (après une modif dans LibreOffice)
+### Workflow normal : modifier → versionner → déployer
 
 ```powershell
-cd macros-inscriptions
-.\sync_macros.ps1 -Push
+# 1. Editer macros/macros_inscriptions.py avec ton editeur
+
+# 2. Versionner
 git add macros/
 git commit -m "Mise a jour des macros"
 git push
+
+# 3. Deployer vers le profil LibreOffice
+cd macros-inscriptions
+.\sync_macros.ps1 -Pull
+# puis redemarrer LibreOffice
 ```
 
 ### Restaurer les macros sur un poste (nouvelle machine, réinstallation)
@@ -36,8 +43,14 @@ cd macros-inscriptions
 .\sync_macros.ps1 -Pull
 ```
 
-puis redémarrer LibreOffice. Le `-Pull` crée automatiquement une sauvegarde
-`.bak` du fichier existant avant de l'écraser.
+puis redémarrer LibreOffice.
+
+### Sécurités et avertissements
+
+- Le `-Pull` crée automatiquement une sauvegarde `.bak` du fichier existant avant de l'écraser.
+- Après un `-Pull`, le script **signale les autres fichiers `.py` présents dans le profil** :
+  supprime l'ancien `macros_libreoffice_python.py` (ou renomme-le), sinon les macros
+  apparaîtront en double dans LibreOffice (Outils → Macros).
 
 ## Documentation des macros
 
