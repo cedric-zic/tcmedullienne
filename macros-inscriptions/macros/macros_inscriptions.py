@@ -1,7 +1,5 @@
 import unicodedata
 import uno
-# from datetime import datetime
-
 
 def normaliser_chaine(chaine):
     """
@@ -20,7 +18,6 @@ def normaliser_chaine(chaine):
     # Convertir en minuscules et supprimer les espaces superflus
     return chaine_sans_accents.strip().lower()
 
-
 def copier_donnees_filtrees_vers_groupes(*args):
     # Récupérer le document actuel
     doc = XSCRIPTCONTEXT.getDocument()
@@ -30,10 +27,8 @@ def copier_donnees_filtrees_vers_groupes(*args):
     # Récupérer les feuilles
     feuille_source = doc.Sheets.getByName("Liste_adherents")
     feuille_dest = doc.Sheets.getByName("Groupes")
-    # log_sheet = doc.Sheets.getByName("Logs")
 
     max_lignes = 1999
-    # start_time = datetime.now()
 
     # --- 1. NETTOYAGE DES COLONNES A, B, C, D (indices 0 à 3) DANS "Groupes" ---
     last_used_row = 0
@@ -92,13 +87,7 @@ def copier_donnees_filtrees_vers_groupes(*args):
             dest_row += 1
             # lignes_copiees += 1
 
-    # # --- 4. ÉCRIRE LE TEMPS TOTAL DANS LA FEUILLE "Logs" ---
-    # total_time = (datetime.now() - start_time).total_seconds()
-    # log_sheet.getCellByPosition(0, 1).setString(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))  # Date
-    # log_sheet.getCellByPosition(1, 1).setString(f"{total_time:.3f}")  # Temps écoulé
-
     controller.suspend(False)  # Réactive les mises à jour d'écran
-
 
 def MiseEnFormeAdherentsEnregistresNonPresents(*args):
     doc = XSCRIPTCONTEXT.getDocument()
@@ -108,9 +97,6 @@ def MiseEnFormeAdherentsEnregistresNonPresents(*args):
     # Récupérer les feuilles
     feuille_adherents = doc.Sheets.getByName("Liste_adherents")
     feuille_enregistres = doc.Sheets.getByName("adherents_enregistres")
-    # log_sheet = doc.Sheets.getByName("Logs")
-
-    # start_time = datetime.now()
 
     # --- 1. Créer un ensemble des paires (Nom, Prénom) normalisées de "Liste_adherents" ---
     adherents_present_set = set()
@@ -152,14 +138,7 @@ def MiseEnFormeAdherentsEnregistresNonPresents(*args):
 
         last_row_enregistres += 1
 
-    # # --- 4. Écrire les logs ---
-    # end_time = datetime.now()
-    # duration = (end_time - start_time).total_seconds()
-    # log_sheet.getCellByPosition(0, 55).setString(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    # log_sheet.getCellByPosition(3, 55).setString(f"Mise à jour des adhérents manquants : {duration:.3f} secondes")
-
     controller.suspend(False)  # Réactive les mises à jour visuelles
-
 
 def AppliquerMiseEnFormeEtCompterOccurrences(*args):
     doc = XSCRIPTCONTEXT.getDocument()
@@ -167,15 +146,12 @@ def AppliquerMiseEnFormeEtCompterOccurrences(*args):
     controller.suspend(True)  # Désactive les mises à jour visuelles
 
     feuille = doc.Sheets.getByName("Groupes")
-    # log_sheet = doc.Sheets.getByName("Logs")
 
     # Colonnes à inclure (indices 0-based)
     colonnes_inclues = [7,8,9,10, 12,13,14,15, 17,18,19,20, 22,23,24,25, 27,28,29,30, 32,33,34,35 ]
     colonnes_exclues = [6, 11, 16, 21, 26, 31]
     # Colonnes pour les bordures (6 à 34 inclus)
     colonnes_bordure = list(range(6, 36))
-
-    # start_time = datetime.now()
 
     # --- 1. Trouver la dernière ligne dans "Groupes" (colonne A) ---
     last_row_groupes = feuille.Rows.Count - 1
@@ -276,15 +252,7 @@ def AppliquerMiseEnFormeEtCompterOccurrences(*args):
             cell.setPropertyValue("LeftBorder", border)
             cell.setPropertyValue("RightBorder", border)
 
-    # # --- 8. Écrire les logs ---
-    # end_time = datetime.now()
-    # duration = (end_time - start_time).total_seconds()
-
-    # log_sheet.getCellByPosition(0, 2).setString(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))  # Log pour la mise en forme
-    # log_sheet.getCellByPosition(2, 2).setString(f"{duration:.3f}")
-
     controller.suspend(False)  # Réactive les mises à jour visuelles
-
 
 def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
     doc = XSCRIPTCONTEXT.getDocument()
@@ -307,9 +275,6 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
     INDEX_NOUVEAU_ADHERENT = 60  # Colonne BI (61ème colonne, index 60)
 
     feuille = doc.Sheets.getByName("Liste_adherents")
-    # log_sheet = doc.Sheets.getByName("Logs")
-
-    # start_time = datetime.now()
 
     # --- 1. Trouver la dernière ligne avec des données dans la colonne A ---
     last_row = 7
@@ -431,47 +396,19 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
                 cell.setPropertyValue("CellBackColor", 0xFFFFFF)  # Blanc (style "Default")
 
     # --- NOUVELLE SECTION : MISE EN FORME POUR LES NOUVEAUX ADHÉRENTS (COLONNE BI = 1) ---
-    # Debug : Vérifier que l'index 60 correspond à BI
-    # col_name = feuille.getCellByPosition(INDEX_NOUVEAU_ADHERENT, 0).getCellAddress().Column
-    # log_sheet.getCellByPosition(0, 45).setString(f"Index 60 = colonne {col_name} (BI=62)")
 
-    # Debug : Vérifier le format de BI pour la ligne 66
-    # cell_bi_66 = feuille.getCellByPosition(INDEX_NOUVEAU_ADHERENT, 65)
-    # log_sheet.getCellByPosition(0, 46).setString(f"Ligne 66, BI : Type={type(cell_bi_66.getValue())}, Valeur={cell_bi_66.getValue()}")
-
-    # Debug : Lister les adhérents avec BI=1
-    # log_row = 50
-    # log_sheet.getCellByPosition(0, log_row).setString("Adhérents avec BI=1 :")
-    # log_row += 1
-
-    # nombre_nouveaux_adherents = 0
     for i in range(7, last_row + 1):
         cell_nouveau_adherent = feuille.getCellByPosition(INDEX_NOUVEAU_ADHERENT, i)
         valeur_str = cell_nouveau_adherent.getString().strip()
         valeur_num = cell_nouveau_adherent.getValue()
 
-        # nom = feuille.getCellByPosition(0, i).getString()
-        # prenom = feuille.getCellByPosition(1, i).getString()
-
         if (valeur_str == "1" or valeur_num == 1 or valeur_num == 1.0):
-            # log_sheet.getCellByPosition(0, log_row).setString(f"Ligne {i+1} : {nom} {prenom} (BI={valeur_str or valeur_num})")
-            # log_row += 1
 
             # Colorer les colonnes A et B en vert
             feuille.getCellByPosition(0, i).setPropertyValue("CellBackColor", 0x90EE90)
             feuille.getCellByPosition(1, i).setPropertyValue("CellBackColor", 0x90EE90)
-            # nombre_nouveaux_adherents += 1
-
-    # log_sheet.getCellByPosition(0, 16).setString(f"Nombre de nouveaux adhérents : {nombre_nouveaux_adherents}")
-    # --- 6. ÉCRIRE LE TEMPS TOTAL DANS LA FEUILLE LOGS ---
-    # end_time = datetime.now()
-    # duration = (end_time - start_time).total_seconds()
-
-    # log_sheet.getCellByPosition(0, 4).setString(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    # log_sheet.getCellByPosition(3, 4).setString(f"{duration:.3f}")
 
     controller.suspend(False)  # Réactive les mises à jour visuelles
-
 
 def AppliquerMiseEnForme_PlageMensuelle_ListeAdherents(*args):
     doc = XSCRIPTCONTEXT.getDocument()
@@ -479,9 +416,6 @@ def AppliquerMiseEnForme_PlageMensuelle_ListeAdherents(*args):
     controller.suspend(True)  # Désactive les mises à jour visuelles
 
     feuille = doc.Sheets.getByName("Liste_adherents")
-    # log_sheet = doc.Sheets.getByName("Logs")
-
-    # start_time = datetime.now()
 
     # --- 1. Trouver la dernière ligne avec des données dans la colonne A ---
     last_row = 7
@@ -500,15 +434,7 @@ def AppliquerMiseEnForme_PlageMensuelle_ListeAdherents(*args):
                 # Cellule vide → laisser en blanc (ou forcer le blanc si nécessaire)
                 cell.setPropertyValue("CellBackColor", 0xFFFFFF)
 
-    # --- 3. Écrire les logs ---
-    # end_time = datetime.now()
-    # duration = (end_time - start_time).total_seconds()
-
-    # log_sheet.getCellByPosition(0, 5).setString(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    # log_sheet.getCellByPosition(4, 5).setString(f"{duration:.3f}")
-
     controller.suspend(False)  # Réactive les mises à jour visuelles
-
 
 def VerifierDoublonsNomPrenom(*args):
     """
@@ -554,7 +480,6 @@ def VerifierDoublonsNomPrenom(*args):
         if ligne <= last_row:
             feuille.getCellByPosition(0, ligne).setPropertyValue("CellBackColor", 0xFF6464)  # Rouge clair
             feuille.getCellByPosition(1, ligne).setPropertyValue("CellBackColor", 0xFF6464)  # Rouge clair
-
 
 # ===== MACROS DE GROUPE =====
 def MiseEnForme_Groupes(*args):
