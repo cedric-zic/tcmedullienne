@@ -45,14 +45,28 @@ avec un message d'erreur explicite.
    d'application « Mail ».
 3. Le coller dans `SMTP_PASSWORD` (avec les espaces tels quels).
 
+## Images : dossier `assets/`
+
+Le logo et les tampons sont cherchés **d'abord dans `assets/`** (à côté du
+script), puis à défaut sur les chemins historiques du lecteur `P:`. Le dossier
+`assets/README.md` liste les noms attendus :
+
+- `logo_tcmedullienne.png`
+- `tampon_annule.png`
+- `tampon_professeur.png`
+
+Avantages : chemins indépendants de la saison et du lecteur `P:`, images
+versionnées avec le script. Tant que les PNG ne sont pas dans `assets/`, le
+repli sur `P:` garantit la continuité de service.
+
 ## Fichiers attendus sur le poste (chemins configurés dans le script)
-   Constante | Rôle | Chemin attendu |
+ | Constante | Rôle | Chemin attendu |
  |---|---|---|
  | `SOURCE_FILE` | Feuille `.ods` des adhérents | `P:/2026-2027/Adhérents/...ods` |
  | `ATTACHMENTS_DIR` | Fiches d'inscription PDF | `P:/2026-2027/Adhérents/Fiches_inscriptions` |
- | `LOGO_PATH` | Logo du club (PNG transparent) | `P:/2025-2026/.../logo_...png` |
- | `TAMPON_ANNULE_PATH` | Tampon « Annulé » (PNG) | `P:/.../tampon_Annulé_transparent.png` |
- | `TAMPON_PROF_PATH` | Tampon « Professeur » (PNG) | `P:/.../tampon_Professeur_transparent.png` |
+ | `LOGO_PATH` | Logo du club (PNG transparent) | `assets/logo_tcmedullienne.png`, sinon `P:/2025-2026/.../logo_...png` |
+ | `TAMPON_ANNULE_PATH` | Tampon « Annulé » (PNG) | `assets/tampon_annule.png`, sinon `P:/.../tampon_Annulé_transparent.png` |
+ | `TAMPON_PROF_PATH` | Tampon « Professeur » (PNG) | `assets/tampon_professeur.png`, sinon `P:/.../tampon_Professeur_transparent.png` |
 
 Le lecteur `P:` correspond à un montage pCloud local. Adapte les chemins si tu
 changes de machine.
