@@ -1,0 +1,25 @@
+# cles_authenticite.py.example — Template des clés locales
+# COPIER ce fichier en "cles_authenticite.py" (même dossier) et renseigner les clés.
+# cles_authenticite.py est exclu par le .gitignore : NE JAMAIS LE COMMITTER.
+#
+# Une clé par saison sportive. La saison du reçu étant signée dans l'ID,
+# le vérificateur utilise automatiquement la clé de la saison correspondante :
+# les reçus des saisons précédentes restent vérifiables avec leur clé d'origine.
+
+CLES_PAR_SAISON = {
+    "2026/2027": "remplacer-par-une-clé-secrète-longue-et-aléatoire",
+    # "2027/2028": "nouvelle-clé-pour-la-saison-suivante",
+}
+
+
+def calculer_cle(saison):
+    """Dérive la clé HMAC-SHA256 (32 octets) de la saison donnée."""
+    import hashlib
+    try:
+        cle = CLES_PAR_SAISON[saison]
+    except KeyError:
+        raise SystemExit(
+            f"❌ Aucune clé définie pour la saison {saison} dans cles_authenticite.py.\n"
+            f"   Ajoutez une entrée CLES_PAR_SAISON[\"{saison}\"] = \"...\"."
+        )
+    return hashlib.sha256(cle.encode()).digest()
