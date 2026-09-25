@@ -67,19 +67,16 @@ LOGO_PATH = resoudre_image(
 
 TAMPON_ANNULE_PATH = resoudre_image(
     r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Annulé_transparent.png",
-    "tampon_Annule.png",
     "tampon_Annule_transparent.png",
 )
 
 TAMPON_PROF_PATH = resoudre_image(
     r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Professeur_transparent.png",
-    "tampon_Professeur.png",
     "tampon_Professeur_transparent.png",
 )
 
 TAMPON_PAYE_PATH = resoudre_image(
     r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Paye_transparent.png",
-    "tampon_Paye.png",
     "tampon_Paye_transparent.png",
 )
 

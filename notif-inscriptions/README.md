@@ -50,12 +50,12 @@ avec un message d'erreur explicite.
 
 Le logo et les tampons sont cherchés **d'abord dans `assets/`** (à côté du
 script), puis à défaut sur les chemins historiques du lecteur `P:`.
-Fichiers actuellement versionnés :
+Fichiers utilisés par le script :
 
 - `logo_tcmedullienne_2026_transparent_160px.png`
-- `tampon_Annule.png` / `tampon_Annule_transparent.png`
-- `tampon_Paye.png` / `tampon_Paye_transparent.png`
-- `tampon_Professeur.png` / `tampon_Professeur_transparent.png`
+- `tampon_Annule_transparent.png`
+- `tampon_Paye_transparent.png`
+- `tampon_Professeur_transparent.png`
 
 ## Fichiers attendus sur le poste (chemins configurés dans le script)
  | Constante | Rôle | Chemin attendu |
@@ -63,9 +63,9 @@ Fichiers actuellement versionnés :
  | `SOURCE_FILE` | Feuille `.ods` des adhérents | `P:/2026-2027/Adhérents/...ods` |
  | `ATTACHMENTS_DIR` | Fiches d'inscription PDF | `P:/2026-2027/Adhérents/Fiches_inscriptions` |
  | `LOGO_PATH` | Logo du club (PNG transparent) | `assets/logo_tcmedullienne_2026_transparent_160px.png`, sinon `P:/2025-2026/.../logo_...png` |
- | `TAMPON_ANNULE_PATH` | Tampon « Annulé » (PNG) | `assets/tampon_Annule.png` ou `assets/tampon_Annule_transparent.png`, sinon `P:/.../tampon_Annulé_transparent.png` |
- | `TAMPON_PROF_PATH` | Tampon « Professeur » (PNG) | `assets/tampon_Professeur.png` ou `assets/tampon_Professeur_transparent.png`, sinon `P:/.../tampon_Professeur_transparent.png` |
-| `TAMPON_PAYE_PATH` | Tampon « Payé » (PNG) | `assets/tampon_Paye.png` ou `assets/tampon_Paye_transparent.png`, sinon `P:/.../tampon_Paye_transparent.png` |
+ | `TAMPON_ANNULE_PATH` | Tampon « Annulé » (PNG) | `assets/tampon_Annule_transparent.png`, sinon `P:/.../tampon_Annulé_transparent.png` |
+ | `TAMPON_PROF_PATH` | Tampon « Professeur » (PNG) | `assets/tampon_Professeur_transparent.png`, sinon `P:/.../tampon_Professeur_transparent.png` |
+| `TAMPON_PAYE_PATH` | Tampon « Payé » (PNG) | `assets/tampon_Paye_transparent.png`, sinon `P:/.../tampon_Paye_transparent.png` |
 
 Le lecteur `P:` correspond à un montage pCloud local. Adapte les chemins si tu
 changes de machine.
