@@ -11,6 +11,7 @@ chemins historiques du lecteur `P:`.
 |---|---|
 | Logo du club (en-tête des emails) | `logo_tcmedullienne.png`, `logo_tcmedullienne_2026_transparent_160px.png` |
 | Tampon « Annulé » | `tampon_Annule.png`, `tampon_Annule_transparent.png` |
+| Tampon « Payé » | `tampon_Paye.png`, `tampon_Paye_transparent.png` |
 | Tampon « Professeur » | `tampon_Professeur.png`, `tampon_Professeur_transparent.png` |
 
 Avantages : chemins indépendants de la saison et du lecteur `P:` — le dépôt
