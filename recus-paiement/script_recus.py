@@ -243,6 +243,7 @@ def generer_recus(mode_test=False):
                               f"{formule}. La cotisation d'un montant total de {montant}€ a bien été acquittée. Celle-ci inclue: ")
         document.add_paragraph("    - l'adhésion au club")
         document.add_paragraph("    - la licence FFT multi-raquettes")
+        document.add_paragraph("    - la réservation gratuite des terrains en illimité")
         document.add_paragraph("    - les cours avec un professeur diplômé, pour les enfants.")
 
         document.add_paragraph("")
