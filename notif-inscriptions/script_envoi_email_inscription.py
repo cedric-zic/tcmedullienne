@@ -808,10 +808,12 @@ def main():
                     today = datetime.now().strftime("%d/%m/%Y")
                     update_calc_annulation_status(SOURCE_FILE, row_index, is_transposed, today, test_mode=args.test)
                     logger.info(f"✅ Email d'annulation {'simulé' if args.test else 'envoyé'} à {email}")
-                    time.sleep(INTER_EMAIL_DELAY)
+                    if not args.test:
+                        time.sleep(INTER_EMAIL_DELAY)
                 else:
                     logger.error(f"❌ Échec de l'envoi de l'email d'annulation pour {email}")
-                    time.sleep(INTER_EMAIL_DELAY)
+                    if not args.test:
+                        time.sleep(INTER_EMAIL_DELAY)
                     
             except Exception as e:
                 logger.error(f"❌ Erreur critique pour l'annulation de {prenom} {nom}: {str(e)}")
@@ -946,16 +948,18 @@ def main():
                         # ✅ Décompte: X/Y (où Y = min(total_to_process, LIMIT_PER_DAY))
                         max_to_send = min(total_to_process, LIMIT_PER_DAY)
                         logger.info(f"✅ Email {total_sent}/{max_to_send} {'simulé' if args.test else 'envoyé'} à {email}")
-                        logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
-                        time.sleep(INTER_EMAIL_DELAY)
+                        if not args.test:
+                            logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
+                            time.sleep(INTER_EMAIL_DELAY)
                     else:
                         today = datetime.now().strftime("%d/%m/%Y")
                         update_calc_status(SOURCE_FILE, row_index, "Erreur", args.test, is_transposed, today)
                         logger.error(f"❌ Échec de l'envoi pour {email} (problème SMTP)")
                         total_sent += 1
                         logger.info(f"❌ Email {total_sent}/{LIMIT_PER_DAY} {'simulé' if args.test else ' non envoyé'} à {email}")
-                        logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
-                        time.sleep(INTER_EMAIL_DELAY)
+                        if not args.test:
+                            logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
+                            time.sleep(INTER_EMAIL_DELAY)
                 except Exception as e:
                     update_calc_status(SOURCE_FILE, row_index, "Erreur", args.test, is_transposed)
                     logger.error(f"❌ Erreur critique pour {email} : {str(e)}")

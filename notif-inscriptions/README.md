@@ -75,7 +75,8 @@ changes de machine.
 Pour éviter les pics vers Gmail/free/outlook :
 
 - `BATCH_SIZE = 1` — un email à la fois.
-- `INTER_EMAIL_DELAY = 45` — 45 s entre chaque envoi (succès ou échec).
+- `INTER_EMAIL_DELAY = 45` — 45 s entre chaque envoi (succès ou échec),
+  uniquement en envoi réel : pas de pause en mode `--test`.
 - `LIMIT_PER_DAY = 20` — arrêt automatique après 20 tentatives.
 
 Réglage dans le script. À adapter selon ta limite Gmail réelle.
