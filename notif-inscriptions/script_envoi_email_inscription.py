@@ -77,6 +77,12 @@ TAMPON_PROF_PATH = resoudre_image(
     "tampon_Professeur_transparent.png",
 )
 
+TAMPON_PAYE_PATH = resoudre_image(
+    r"P:/2026-2027/Bureau/Modèles documents/Logos/tampon_Paye_transparent.png",
+    "tampon_Paye.png",
+    "tampon_Paye_transparent.png",
+)
+
 BATCH_SIZE = 1
 LIMIT_PER_DAY = 15  # adaptez à votre limite réelle (15-20)
 INTER_EMAIL_DELAY = 45   # secondes entre chaque email (envoi lissé, pas de pics)
@@ -115,6 +121,8 @@ try:
         raise FileNotFoundError(f"Le tampon d'annulation {TAMPON_ANNULE_PATH} est introuvable.")
     if not os.path.exists(TAMPON_PROF_PATH):
         raise FileNotFoundError(f"Le tampon professeur {TAMPON_PROF_PATH} est introuvable.")
+    if not os.path.exists(TAMPON_PAYE_PATH):
+        raise FileNotFoundError(f"Le tampon payé {TAMPON_PAYE_PATH} est introuvable.")
     logger.info("✅ Accès au lecteur P: et aux fichiers validé.")
 except Exception as e:
     logger.error(f"❌ Erreur d'accès aux fichiers : {e}")
@@ -921,6 +929,18 @@ def main():
                     continue
 
                 try:
+                    # Appliquer le tampon PAYÉ pour les paiements complets
+                    # (même position et rotation que le tampon ANNULÉ)
+                    if str(paiement).strip() in ["Oui", "Remboursement"]:
+                        ajouter_tampon_au_pdf(
+                            pdf_path=attachment_path,
+                            image_path=TAMPON_PAYE_PATH,
+                            position_percent=(0.33, 0.30),
+                            rotation=45,
+                            output_path=attachment_path
+                        )
+                        logger.info(f"🖋️ Tampon PAYÉ ajouté à la fiche de {prenom} {nom}")
+
                     if send_email(email, subject, html_body, attachment_path, args.test, logo_path=LOGO_PATH, adherent=adherent):
                         today = datetime.now().strftime("%d/%m/%Y")
                         statut = "Relancer" if paiement in ["Partiel", "Non"] else "Oui"

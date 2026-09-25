@@ -5,7 +5,8 @@ Envoi des emails d'inscription aux adhérents du TC La Médullienne pour la sais
 
 Gère trois flux :
 - **Adhérents normaux** — confirmation d'inscription + relance si paiement
-  partiel ou non réglé après un mois.
+  partiel ou non réglé après un mois. Un tampon « Payé » est appliqué sur la
+  fiche PDF lorsque l'email confirmant un paiement complet est envoyé.
 - **Professeurs** — application d'un tampon « Professeur » sur la fiche PDF.
 - **Annulations** — application d'un tampon « Annulé » + email d'annulation.
 
@@ -53,6 +54,7 @@ Fichiers actuellement versionnés :
 
 - `logo_tcmedullienne_2026_transparent_160px.png`
 - `tampon_Annule.png` / `tampon_Annule_transparent.png`
+- `tampon_Paye.png` / `tampon_Paye_transparent.png`
 - `tampon_Professeur.png` / `tampon_Professeur_transparent.png`
 
 ## Fichiers attendus sur le poste (chemins configurés dans le script)
@@ -63,6 +65,7 @@ Fichiers actuellement versionnés :
  | `LOGO_PATH` | Logo du club (PNG transparent) | `assets/logo_tcmedullienne_2026_transparent_160px.png`, sinon `P:/2025-2026/.../logo_...png` |
  | `TAMPON_ANNULE_PATH` | Tampon « Annulé » (PNG) | `assets/tampon_Annule.png` ou `assets/tampon_Annule_transparent.png`, sinon `P:/.../tampon_Annulé_transparent.png` |
  | `TAMPON_PROF_PATH` | Tampon « Professeur » (PNG) | `assets/tampon_Professeur.png` ou `assets/tampon_Professeur_transparent.png`, sinon `P:/.../tampon_Professeur_transparent.png` |
+| `TAMPON_PAYE_PATH` | Tampon « Payé » (PNG) | `assets/tampon_Paye.png` ou `assets/tampon_Paye_transparent.png`, sinon `P:/.../tampon_Paye_transparent.png` |
 
 Le lecteur `P:` correspond à un montage pCloud local. Adapte les chemins si tu
 changes de machine.
