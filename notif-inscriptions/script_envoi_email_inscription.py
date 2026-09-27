@@ -647,6 +647,7 @@ def preparer_piece_jointe(attachment_path):
     try:
         taille = os.path.getsize(attachment_path)
         if taille <= SEUIL_COMPRESSION_PDF * 1024 * 1024:
+            logger.info(f"📎 Pièce jointe {os.path.basename(attachment_path)} : {taille/1e6:.2f} Mo — sous le seuil de {SEUIL_COMPRESSION_PDF:.0f} Mo, envoyée telle quelle")
             return attachment_path, False
         temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="piece_jointe_")
         os.close(temp_fd)
@@ -690,6 +691,7 @@ def preparer_piece_jointe(attachment_path):
             doc.close()
         if os.path.getsize(temp_path) >= taille:
             os.remove(temp_path)
+            logger.info(f"📎 Pièce jointe {os.path.basename(attachment_path)} : {taille/1e6:.2f} Mo — compression sans gain, envoyée telle quelle")
             return attachment_path, False
         gain = (1 - os.path.getsize(temp_path) / taille) * 100
         logger.info(f"📦 Pièce jointe compressée : {taille/1e6:.2f} Mo → {os.path.getsize(temp_path)/1e6:.2f} Mo (-{gain:.0f}%) pour {os.path.basename(attachment_path)}")
