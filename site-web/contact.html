@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact - TC La Médullienne</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="./images/logo.png" alt="Logo TC La Médullienne" />
+                <span class="logo-text">TC La Médullienne</span>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="index.html">Accueil</a></li>
+                    <li><a href="tennis.html">Tennis</a></li>
+                    <li><a href="padel.html">Padel</a></li>
+                    <li><a href="contact.html">Contact</a></li>
+                </ul>
+                <div class="hamburger" onclick="toggleMenu()">☰</div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Contactez-nous</h1>
+        </section>
+
+        <section>
+            <h2 class="section-title">Envoyez-nous un message</h2>
+            <div class="contact-form">
+                <!--
+                  POUR ACTIVER L'ENVOI D'EMAILS :
+                  1. Sur Yunohost, installez un script PHP ou utilisez un service comme Formspree.
+                  2. Exemple avec Formspree (gratuit) :
+                     - Remplacez l'attribut action="" par action="https://formspree.io/f/VOUREMAIL"
+                     - Créez un compte sur https://formspree.io/ pour obtenir votre lien.
+                  3. Exemple avec PHP (à placer sur Yunohost) :
+                     - Créez un fichier send_email.php et liez-le via action="send_email.php".
+                -->
+                <form action="" method="POST" id="contactForm">
+                    <div class="form-group">
+                        <label for="nom">Nom *</label>
+                        <input type="text" id="nom" name="nom" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" required />
+                    </div>
+                    <div class="form-group">
+                        <label for="objet">Objet *</label>
+                        <select id="objet" name="objet" required>
+                            <option value="">-- Sélectionnez --</option>
+                            <option value="tennis">Tennis</option>
+                            <option value="padel">Padel</option>
+                            <option value="reservation">Réservation</option>
+                            <option value="partenariat">Partenariat</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" name="message" required></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">Envoyer</button>
+                </form>
+            </div>
+
+            <div class="footer-info">
+                <div class="footer-section">
+                    <h4>Coordonnées</h4>
+                    <p>📍 <strong>Site d'Avensan :</strong> Plaine des Sports, 33480 Avensan</p>
+                    <p>📍 <strong>Site de Castelnau de Médoc :</strong> 33480 Castelnau de Médoc</p>
+                    <p>📞 <a href="tel:+33954707862" class="call-btn">09 54 70 78 62</a></p>
+                </div>
+                <div class="footer-section">
+                    <h4>Réseaux Sociaux</h4>
+                    <div class="social-links">
+                        <a href="https://facebook.com/tcmedullienne" target="_blank">Facebook</a>
+                        <a href="https://instagram.com/tcmedullienne" target="_blank">Instagram</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="sponsors">
+            <h2 class="section-title">Nos Sponsors et Partenaires</h2>
+            <p style="margin-bottom: 1.5rem;">Merci à nos sponsors pour leur soutien !</p>
+            <div class="sponsor-container" id="sponsorContainer">
+                <a href="" target="_blank" id="sponsorLink">
+                    <img src="" alt="Sponsor" id="sponsorImage" />
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-info">
+            <div class="footer-section">
+                <h4>Coordonnées</h4>
+                <p>📍 <strong>Site d'Avensan :</strong> Plaine des Sports, 33480 Avensan</p>
+                <p>📍 <strong>Site de Castelnau de Médoc :</strong> 33480 Castelnau de Médoc</p>
+                <p>📞 <a href="tel:+33954707862" class="call-btn">09 54 70 78 62</a></p>
+            </div>
+            <div class="footer-section">
+                <h4>Réseaux Sociaux</h4>
+                <div class="social-links">
+                    <a href="https://facebook.com/tcmedullienne" target="_blank">Facebook</a>
+                    <a href="https://instagram.com/tcmedullienne" target="_blank">Instagram</a>
+                </div>
+            </div>
+        </div>
+        <p>&copy; 2026 TC La Médullienne. Tous droits réservés.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

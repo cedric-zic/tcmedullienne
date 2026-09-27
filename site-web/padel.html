@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Padel - TC La Médullienne</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="./images/logo.png" alt="Logo TC La Médullienne" />
+                <span class="logo-text">TC La Médullienne</span>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="index.html">Accueil</a></li>
+                    <li><a href="tennis.html">Tennis</a></li>
+                    <li><a href="padel.html">Padel</a></li>
+                </ul>
+                <div class="hamburger" onclick="toggleMenu()">☰</div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Padel au TC La Médullienne</h1>
+        </section>
+
+        <section>
+            <h2 class="section-title">Découvrez le Padel</h2>
+            <div class="activity-details">
+                <h3>🏓 Un sport convivial et accessible</h3>
+                <p>Le padel est un sport en plein essor, mélangeant tennis, squash et pelote basque. Il se joue en double sur un terrain plus petit qu'un court de tennis, entouré de murs ou de vitres. Idéal pour s'amuser entre amis ou en famille !</p>
+                <p>Nos cours sont encadrés par des professionnels pour vous apprendre les bases ou vous aider à progresser.</p>
+
+                <h3>🏟️ Nos installations</h3>
+                <div class="courts-grid">
+                    <div class="court-card">
+                        <h4>Site d'Avensan</h4>
+                        <p><strong>Courts de padel :</strong> 3 courts</p>
+                        <p><strong>Équipement :</strong> Raquettes et balles disponibles à la location au Club House.</p>
+                    </div>
+                    <div class="court-card">
+                        <h4>Horaires du Club House</h4>
+                        <p><strong>Lundi - Mardi - Jeudi - Vendredi :</strong> 9h - 13h / 16h30 - 22h30</p>
+                        <p><strong>Mercredi & Samedi :</strong> 9h - 22h30</p>
+                        <p><strong>Dimanche :</strong> 9h - 14h30</p>
+                    </div>
+                </div>
+
+                <h3>📅 Réservations</h3>
+                <p>Les courts de padel sont réservables par téléphone ou directement au Club House. Pensez à réserver à l'avance pour les créneaux en soirée et le week-end.</p>
+            </div>
+        </section>
+
+        <section class="sponsors">
+            <h2 class="section-title">Nos Sponsors et Partenaires</h2>
+            <p style="margin-bottom: 1.5rem;">Merci à nos sponsors pour leur soutien !</p>
+            <div class="sponsor-container" id="sponsorContainer">
+                <a href="" target="_blank" id="sponsorLink">
+                    <img src="" alt="Sponsor" id="sponsorImage" />
+                </a>
+            </div>
+        </section>
+    </main>
+
+<!--#include virtual="footer.html" -->
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TC La Médullienne - Club de Tennis et Padel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="./images/logo.png" alt="Logo TC La Médullienne" />
+                <span class="logo-text">TC La Médullienne</span>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="index.html">Accueil</a></li>
+                    <li><a href="tennis.html">Tennis</a></li>
+                    <li><a href="padel.html">Padel</a></li>
+                </ul>
+                <div class="hamburger" onclick="toggleMenu()">☰</div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Bienvenue au TC La Médullienne</h1>
+            <p>Découvrez nos installations de tennis et padel sur deux sites : Avensan et Castelnau de Médoc.</p>
+        </section>
+
+        <section>
+            <h2 class="section-title">Présentation du Club</h2>
+            <div class="club-info">
+                <div class="club-card">
+                    <h3>Qui sommes-nous ?</h3>
+                    <p>Le TC La Médullienne est un club dynamique dédié à la pratique du tennis et du padel pour tous les niveaux, du débutant au confirmé. Nous mettons à votre disposition des infrastructures modernes et un encadrement de qualité pour vous accompagner dans votre pratique sportive.</p>
+                </div>
+                <div class="sites-grid">
+                    <div class="site-card">
+                        <h4>🏟️ Site de Castelnau de Médoc</h4>
+                        <p><strong>Adresse :</strong> 33480 Castelnau de Médoc</p>
+                        <p><strong>Installations :</strong></p>
+                        <ul>
+                            <li>1 salle intérieure avec 2 courts de tennis en béton poreux</li>
+                            <li>3 courts extérieurs en béton poreux</li>
+                        </ul>
+                    </div>
+                    <div class="site-card">
+                        <h4>🏟️ Site d'Avensan</h4>
+                        <p><strong>Adresse :</strong> 33480 Avensan</p>
+                        <p><strong>Installations :</strong></p>
+                        <ul>
+                            <li>1 salle intérieure avec 2 courts de tennis en béton poreux</li>
+                            <li>3 courts de padel</li>
+                            <li>2 courts extérieurs éclairés en béton poreux</li>
+                            <li>1 snack/Club House</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">Horaires du Club House (Avensan)</h2>
+            <div class="club-card">
+                <p><strong>Lundi - Mardi - Jeudi - Vendredi :</strong> 9h - 13h / 16h30 - 22h30</p>
+                <p><strong>Mercredi & Samedi :</strong> 9h - 22h30</p>
+                <p><strong>Dimanche :</strong> 9h - 14h30</p>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">Localisation</h2>
+            <div id="map"></div>
+        </section>
+
+        <section>
+            <h2 class="section-title">Nos Événements</h2>
+            <p style="text-align: center; margin-bottom: 2rem;">Découvrez nos derniers événements et tournois. Suivez-nous sur <a href="https://facebook.com/tcmedullienne" target="_blank">Facebook</a> et <a href="https://instagram.com/tcmedullienne" target="_blank">Instagram</a> pour ne rien manquer !</p>
+            <div class="carousel">
+                <div class="carousel-inner" id="carouselInner">
+                    <div class="carousel-item">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Crect fill='%230077B6' width='800' height='400'/%3E%3Ctext x='400' y='200' text-anchor='middle' fill='white' font-size='24'%3ETournoi de Padel 2026%3C/text%3E%3C/svg%3E" alt="Tournoi de Padel 2026" />
+                        <div class="carousel-caption">Tournoi de Padel 2026</div>
+                    </div>
+                    <div class="carousel-item">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Crect fill='%2300B4D8' width='800' height='400'/%3E%3Ctext x='400' y='200' text-anchor='middle' fill='white' font-size='24'%3EStage Tennis Été%3C/text%3E%3C/svg%3E" alt="Stage Tennis Été" />
+                        <div class="carousel-caption">Stage Tennis Été</div>
+                    </div>
+                    <div class="carousel-item">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400'%3E%3Crect fill='%230096C7' width='800' height='400'/%3E%3Ctext x='400' y='200' text-anchor='middle' fill='white' font-size='24'%3ESoirée Membres%3C/text%3E%3C/svg%3E" alt="Soirée Membres" />
+                        <div class="carousel-caption">Soirée Membres</div>
+                    </div>
+                </div>
+                <div class="carousel-nav">
+                    <button onclick="prevSlide()">Précédent</button>
+                    <button onclick="nextSlide()">Suivant</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="sponsors">
+            <h2 class="section-title">Nos Sponsors et Partenaires</h2>
+            <p style="margin-bottom: 1.5rem;">Merci à nos sponsors pour leur soutien !</p>
+            <div class="sponsor-container" id="sponsorContainer">
+                <a href="" target="_blank" id="sponsorLink">
+                    <img src="" alt="Sponsor" id="sponsorImage" />
+                </a>
+            </div>
+        </section>
+    </main>
+
+<!--#include virtual="footer.html" -->
+
+    <script src="script.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" onload="initMap()"></script>
+</body>
+</html>
