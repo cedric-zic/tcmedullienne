@@ -8,7 +8,8 @@ declare(strict_types=1);
 // Configuration locale
 //
 // Le mot de passe des pages d'administration se trouve dans
-// `admin-mot-de-passe.php`, A COTER DE CE FICHIER, SUR LE SERVEUR SEULEMENT.
+// `.admin-mot-de-passe.php`, DANS LE DOSSIER PARENT de la racine web
+// (hors de tout acces HTTP), sur le serveur uniquement.
 // Ce fichier est exclu par le .gitignore racine et ne doit jamais être commité.
 //
 // Modele du fichier attendu :
@@ -20,7 +21,7 @@ declare(strict_types=1);
 // --------------------------------------------------------------------------
 
 define('DOSSIER_RACINE', __DIR__);
-define('FICHIER_MOT_DE_PASSE', DOSSIER_RACINE . '/admin-mot-de-passe.php');
+define('FICHIER_MOT_DE_PASSE', dirname(DOSSIER_RACINE) . '/.admin-mot-de-passe.php');
 define('TAILLE_IMAGE_MAX', 5 * 1024 * 1024); // 5 Mo
 define('EXTENSIONS_AUTORISEES', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
 

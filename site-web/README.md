@@ -44,7 +44,8 @@ fichiers JSON lus au chargement des pages :
 - `evenements.json` — liste des événements (titre, image), affichés dans le
   carrousel de l'accueil
 
-Ces fichiers, le fichier de mot de passe et les dossiers
+Ces fichiers, le fichier de mot de passe (`.admin-mot-de-passe.php`,
+dans le dossier parent de la racine web) et les dossiers
 `images/sponsors/` et `images/evenements/` sont **exclus du dépôt Git** :
 ils sont créés et modifiés uniquement sur le serveur via les pages
 d'administration.
@@ -52,24 +53,33 @@ d'administration.
 ### Utilisation
 
 1. Ouvrir `admin-sponsors.php` ou `admin-evenements.php` dans le navigateur
-2. Saisir le mot de passe (fichier `admin-mot-de-passe.php`, voir ci-dessous)
+2. Saisir le mot de passe (fichier `.admin-mot-de-passe.php`, voir ci-dessous)
 3. Ajouter / modifier / supprimer ; la liste existante est affichée avec
    miniatures et positions, et les changements sont visibles immédiatement
    sur le site
 
-### Configuration obligatoire : `admin-mot-de-passe.php`
+### Configuration obligatoire : `.admin-mot-de-passe.php`
 
 Les deux pages d'administration sont protégées par un mot de passe stocké
-dans `admin-mot-de-passe.php`, à créer à la racine du site **sur le serveur
-uniquement**. Ce fichier est exclu par le `.gitignore` et ne doit jamais
-être commité.
+dans `.admin-mot-de-passe.php`, à créer **dans le dossier parent de la
+racine web** (sur YunoHost : `/var/www/my_webapp/.admin-mot-de-passe.php`)
+— jamais dans le dossier servi. Ce fichier est exclu par le `.gitignore`
+et ne doit jamais être commité.
 
-Modèle :
-
-```php
+```bash
+cat > /var/www/my_webapp/.admin-mot-de-passe.php <<'EOF'
 <?php
 return 'votre mot de passe';
+EOF
+chown my_webapp: /var/www/my_webapp/.admin-mot-de-passe.php
+chmod 640 /var/www/my_webapp/.admin-mot-de-passe.php
 ```
+
+Ainsi placé, le fichier est inatteignable par HTTP quel que soit le nom
+donné : la racine web est `/var/www/my_webapp/www/`, son parent n'est pas
+servi. Le point préfixe est une seconde protection (nginx refuse les
+fichiers cachés), mais c'est l'emplacement hors racine web qui fait le
+travail.
 
 ### Déploiement et mises à jour du site
 
@@ -81,7 +91,7 @@ rsync -rv --delete \
   --exclude='.git' \
   --exclude='sponsors.json' \
   --exclude='evenements.json' \
-  --exclude='admin-mot-de-passe.php' \
+  --exclude='.admin-mot-de-passe.php' \
   --exclude='images/sponsors/' \
   --exclude='images/evenements/' \
   site-web/ serveur:/var/www/my_webapp/www/
@@ -129,6 +139,53 @@ systemctl reload nginx
 
 Après un `yunohost app change-url` ou une reconfiguration de l'app, ces
 fichiers personnalisés sont conservés (contrairement à `my_webapp.conf`).
+
+### Limitation de débit sur les requêtes POST des pages admin
+
+Les pages d'administration n'ont pas de blocage après échecs de mot de
+passe : la limitation de débit nginx freine la force brute. Créer un
+second fichier dans le même dossier :
+
+```bash
+cat > /etc/nginx/conf.d/www.tcmedullienne.local.d/my_webapp.d/limite-debit.conf <<'EOF'
+limit_req_zone $binary_remote_addr zone=zone_admin:10m rate=10r/m;
+
+location ~ ^/(admin-sponsors|admin-evenements)\.php$ {
+    limit_req zone=zone_admin burst=5 nodelay;
+    limit_req_status 429;
+    fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+    include fastcgi_params;
+    fastcgi_index index.php;
+    fastcgi_pass unix:/run/php/php8.4-fpm-my_webapp.sock;
+    fastcgi_param REMOTE_USER $remote_user;
+    fastcgi_param PATH_INFO $fastcgi_path_info;
+    fastcgi_param SCRIPT_FILENAME $request_filename;
+}
+EOF
+
+systemctl reload nginx
+```
+
+- `rate=10r/m` : 10 requêtes par minute et par adresse IP en moyenne,
+  `burst=5` tolère les rafales légitimes (formulaire + upload) ;
+- au-delà, nginx répond `429 Too Many Requests` ;
+- `fastcgi_pass` : adapter le chemin du socket à la version PHP activée
+  (il figure dans `/etc/nginx/conf.d/www.tcmedullienne.local.d/my_webapp.conf`,
+  section PHP) ; les autres directives `fastcgi_*` reprennent celles de
+  l'app pour que PHP s'exécute à l'identique ;
+- pour vérifier que la limite fonctionne : soumettre des requêtes
+  répétées et observer l'apparition de réponses 429.
+
+## Indexation (robots.txt)
+
+`robots.txt` à la racine du site demande aux moteurs légitimes (Google,
+Bing...) de ne pas indexer les pages d'administration ni le fichier de
+mot de passe. Nuance : les scanners malveillants l'ignorent — la
+protection réelle reste le mot de passe (long, généré) et la limitation
+de débit ci-dessus.
+
+`admin-lib.php` n'est pas listé car un accès direct ne fait rien d'autre
+que définir des fonctions (aucune sortie) ; les trois autres le sont.
 
 ## Dépendances externes
 
