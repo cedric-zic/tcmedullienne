@@ -83,6 +83,11 @@ TAMPON_PAYE_PATH = resoudre_image(
 BATCH_SIZE = 1
 LIMIT_PER_DAY = 15  # adaptez à votre limite réelle (15-20)
 INTER_EMAIL_DELAY = 45   # secondes entre chaque email (envoi lissé, pas de pics)
+
+# Compression de la pièce jointe avant envoi (fiches scannées lourdes)
+SEUIL_COMPRESSION_PDF = 1.0          # Mo : compresse au-dessus de ce seuil
+DPI_CIBLE_PDF = 150                  # DPI cible des images après compression
+QUALITE_JPEG_PDF = 65                # qualité JPEG après compression
 SUBJECT = "TC La Medullienne - Inscription {prenom} {nom} - Saison 2026/2027"
 EMAIL_SENT_COLUMN = 20  # Colonne T (20ème colonne)
 DATE_ENVOI_COLUMN = 21 # Colonne U
@@ -631,6 +636,68 @@ def generate_pdf(content, pdf_filename, output_dir=None):
     return pdf_path
 
 # --- FONCTION D'ENVOI D'EMAIL ---
+
+
+def preparer_piece_jointe(attachment_path):
+    """
+    Retourne le chemin de la pièce jointe à envoyer : une copie temporaire
+    compressée si le PDF dépasse SEUIL_COMPRESSION_PDF Mo, sinon le fichier
+    original. L'original n'est jamais modifié. Retourne (chemin, est_temporaire).
+    """
+    try:
+        taille = os.path.getsize(attachment_path)
+        if taille <= SEUIL_COMPRESSION_PDF * 1024 * 1024:
+            return attachment_path, False
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="piece_jointe_")
+        os.close(temp_fd)
+        doc = pymupdf.open(attachment_path)
+        try:
+            traites = set()
+            for page in doc:
+                for img_info in page.get_images(full=True):
+                    xref, smask = img_info[0], img_info[1]
+                    if xref in traites or smask > 0:
+                        traites.add(xref)
+                        continue
+                    traites.add(xref)
+                    pix = pymupdf.Pixmap(doc, xref)
+                    mode = {1: "L", 3: "RGB"}.get(pix.n)
+                    if mode is None or pix.colorspace is None:
+                        continue
+                    rects = page.get_image_rects(xref)
+                    if not rects:
+                        continue
+                    rect = max(rects, key=lambda r: r.width * r.height)
+                    dpi_actuel = pix.width / max(rect.width, 1) * 72
+                    if dpi_actuel <= DPI_CIBLE_PDF:
+                        continue
+                    ratio = DPI_CIBLE_PDF / dpi_actuel
+                    new_w = max(1, round(pix.width * ratio))
+                    new_h = max(1, round(pix.height * ratio))
+                    img = Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+                    img = img.resize((new_w, new_h), Image.LANCZOS)
+                    buf = io.BytesIO()
+                    img.save(buf, format="JPEG", quality=QUALITE_JPEG_PDF, optimize=True)
+                    doc.update_stream(xref, buf.getvalue(), compress=0)
+                    doc.xref_set_key(xref, "Filter", "/DCTDecode")
+                    doc.xref_set_key(xref, "DecodeParms", "null")
+                    doc.xref_set_key(xref, "Width", str(new_w))
+                    doc.xref_set_key(xref, "Height", str(new_h))
+                    doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB" if mode == "RGB" else "/DeviceGray")
+                    doc.xref_set_key(xref, "BitsPerComponent", "8")
+            doc.save(temp_path, garbage=4, deflate=True)
+        finally:
+            doc.close()
+        if os.path.getsize(temp_path) >= taille:
+            os.remove(temp_path)
+            return attachment_path, False
+        gain = (1 - os.path.getsize(temp_path) / taille) * 100
+        logger.info(f"📦 Pièce jointe compressée : {taille/1e6:.2f} Mo → {os.path.getsize(temp_path)/1e6:.2f} Mo (-{gain:.0f}%) pour {os.path.basename(attachment_path)}")
+        return temp_path, True
+    except Exception as e:
+        logger.warning(f"⚠️ Compression impossible ({e}) : envoi du PDF original.")
+        return attachment_path, False
+
 def send_email(to_email, subject, html_body, attachment_path=None, test_mode=False, logo_path=None, adherent=None):
     nom = str(adherent.get("NOM", "") if adherent else "").strip()
     prenom = str(adherent.get("PRENOM", "") if adherent else "").strip()
@@ -664,14 +731,25 @@ def send_email(to_email, subject, html_body, attachment_path=None, test_mode=Fal
 
     # ✅ Pièce jointe (fiche d'inscription) — au niveau du mixed, hors du related
     attachment_name = "aucune"
+    chemin_joint = attachment_path
+    est_temporaire = False
     if attachment_path and os.path.exists(attachment_path):
-        attachment_name = os.path.basename(attachment_path)
-        with open(attachment_path, "rb") as attachment:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment.read())
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f"attachment; filename={attachment_name}")
-        msg.attach(part)
+        chemin_joint, est_temporaire = preparer_piece_jointe(attachment_path)
+    try:
+        if chemin_joint and os.path.exists(chemin_joint):
+            attachment_name = os.path.basename(chemin_joint)
+            with open(chemin_joint, "rb") as attachment:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f"attachment; filename={attachment_name}")
+            msg.attach(part)
+    finally:
+        if est_temporaire and chemin_joint and os.path.exists(chemin_joint):
+            try:
+                os.remove(chemin_joint)
+            except OSError:
+                pass
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=60) as server:
