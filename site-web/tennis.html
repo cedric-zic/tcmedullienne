@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tennis - TC La Médullienne</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <img src="./images/logo.png" alt="Logo TC La Médullienne" />
+                <span class="logo-text">TC La Médullienne</span>
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="index.html">Accueil</a></li>
+                    <li><a href="tennis.html">Tennis</a></li>
+                    <li><a href="padel.html">Padel</a></li>
+                </ul>
+                <div class="hamburger" onclick="toggleMenu()">☰</div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <h1>Tennis au TC La Médullienne</h1>
+        </section>
+
+        <section>
+            <h2 class="section-title">Découvrez le Tennis</h2>
+            <div class="activity-details">
+                <h3>🎾 Une activité pour tous les niveaux</h3>
+                <p>Le tennis est un sport complet qui allie endurance, technique et stratégie. Que vous soyez débutant ou confirmé, notre club vous propose des cours adaptés à votre niveau, ainsi que des créneaux de jeu libre pour pratiquer à votre rythme.</p>
+                <p>Nos professeurs diplômés vous accompagneront pour progresser dans une ambiance conviviale.</p>
+
+                <h3>🏟️ Nos installations</h3>
+                <div class="courts-grid">
+                    <div class="court-card">
+                        <h4>Site de Castelnau de Médoc</h4>
+                        <p><strong>Courts intérieurs :</strong> 2 courts en béton poreux</p>
+                        <p><strong>Courts extérieurs :</strong> 3 courts en béton poreux</p>
+                    </div>
+                    <div class="court-card">
+                        <h4>Site d'Avensan</h4>
+                        <p><strong>Courts intérieurs :</strong> 2 courts en béton poreux</p>
+                        <p><strong>Courts extérieurs :</strong> 2 courts éclairés en béton poreux</p>
+                    </div>
+                </div>
+
+                <h3>📅 Horaires et Réservations</h3>
+                <p>Les courts sont accessibles aux membres selon les horaires d'ouverture du club. Pour réserver un court, contactez-nous par téléphone ou via notre formulaire de contact.</p>
+                <p><strong>Tarifs :</strong> Voir la grille tarifaire en club house ou nous contacter pour plus d'informations.</p>
+            </div>
+        </section>
+
+        <section class="sponsors">
+            <h2 class="section-title">Nos Sponsors et Partenaires</h2>
+            <p style="margin-bottom: 1.5rem;">Merci à nos sponsors pour leur soutien !</p>
+            <div class="sponsor-container" id="sponsorContainer">
+                <a href="" target="_blank" id="sponsorLink">
+                    <img src="" alt="Sponsor" id="sponsorImage" />
+                </a>
+            </div>
+        </section>
+    </main>
+
+<!--#include virtual="footer.html" -->
+    <script src="script.js"></script>
+</body>
+</html>
