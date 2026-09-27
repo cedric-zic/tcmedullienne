@@ -10,6 +10,11 @@ Gère trois flux :
 - **Professeurs** — application d'un tampon « Professeur » sur la fiche PDF.
 - **Annulations** — application d'un tampon « Annulé » + email d'annulation.
 
+Avant d'insérer un tampon (Payé, Professeur ou Annulé), le script vérifie s'il est déjà
+présent sur la fiche PDF (comparaison d'image après rotation/redimensionnement
+identiques). Cela évite d'empiler plusieurs tampons identiques — et d'alourdir le
+PDF — quand un envoi échoue et que le script est relancé sur la même fiche.
+
 ## Usage
 
 ```bash
