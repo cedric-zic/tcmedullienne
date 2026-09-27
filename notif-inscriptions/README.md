@@ -116,6 +116,7 @@ et les montants avant un envoi réel.
   `MIMEImage`).
 - **CSS inline** — pas de `display:flex` (remplacé par tables), largeur fluide
   `max-width:600px`. Compatibilité Gmail mobile maximale.
+- **Compression automatique de la pièce jointe** — au-dessus de `SEUIL_COMPRESSION_PDF` (1 Mo), le PDF est compressé (images ré-échantillonnées à `DPI_CIBLE_PDF` = 150 dpi + JPEG qualité 65) **sur une copie temporaire** ; la fiche originale du lecteur `P:` n'est jamais modifiée. Un log indique le gain (`📦 Pièce jointe compressée : 2.49 Mo → 0.26 Mo`). En cas d'échec de compression, l'original est envoyé tel quel.
 - **Compteur `total_sent`** — incrémenté même en cas d'échec SMTP, pour garder
   un compteur monotone dans les logs (`13/15` puis `14/15`) et borner la boucle.
   Un échec écrit le statut « Erreur » et sera retenté au prochain lancement.
