@@ -499,3 +499,129 @@ footer {
         padding: 2rem 1rem;
     }
 }
+
+/* Pages d'administration */
+.admin-main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.admin-main h2 {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--primary-color);
+    margin: 2.5rem 0 1rem;
+}
+
+.admin-login {
+    max-width: 400px;
+    margin: 2rem auto;
+    background: var(--light-color);
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.admin-message {
+    padding: 0.75rem 1rem;
+    border-radius: 5px;
+    margin-bottom: 1.5rem;
+}
+
+.admin-succes {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.admin-erreur {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.admin-liste {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.admin-item {
+    display: grid;
+    grid-template-columns: 150px 1fr auto;
+    gap: 1.5rem;
+    align-items: start;
+    background: var(--white);
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border-left: 5px solid var(--primary-color);
+}
+
+.admin-miniature {
+    width: 150px;
+    height: 100px;
+    object-fit: contain;
+    background: var(--light-color);
+    border-radius: 5px;
+}
+
+.admin-item-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.admin-item-form .form-group {
+    margin-bottom: 0;
+}
+
+.admin-item-suppression {
+    align-self: end;
+}
+
+.admin-form {
+    background: var(--light-color);
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+}
+
+.admin-btn-supprimer {
+    background: #c0392b;
+    color: var(--white);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.admin-btn-supprimer:hover {
+    background: #a93226;
+}
+
+.admin-btn-secondaire {
+    background: var(--gray);
+    color: var(--text-color);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.admin-deconnexion {
+    margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+    .admin-item {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-miniature {
+        width: 100%;
+    }
+}

@@ -1,28 +1,94 @@
 # site-web
 
-Site web statique de présentation du TC La M\u00e9dullienne : pages d'accueil,
-Tennis, Padel et Contact. Le club est pr\u00e9sent\u00e9 sur ses deux sites, Avensan
-et Castelnau de M\u00e9doc.
+Site web de présentation du TC La Médullienne : pages d'accueil, Tennis,
+Padel et Contact, plus des pages d'administration pour gérer sponsors et
+événements sans toucher au code. Le club est présenté sur ses deux sites,
+Avensan et Castelnau de Médoc.
 
-Aucune build, aucun framework : HTML/CSS/JS purs, servables tels quels.
+Aucune build, aucun framework : HTML/CSS/JS purs. Les pages d'administration
+nécessitent PHP (sur YunoHost : l'activer dans la configuration de My Webapp).
 
 ## Pages
 
 | Fichier | Contenu |
 |---|---|
-| `index.html` | Accueil : pr\u00e9sentation du club, carrousel d'\u00e9v\u00e9nements, horaires, carte des deux sites |
+| `index.html` | Accueil : présentation du club, carrousel d'événements, horaires, carte des deux sites, sponsors |
 | `tennis.html` | Page Tennis |
 | `padel.html` | Page Padel |
-| `contact.html` | Formulaire de contact + coordonn\u00e9es compl\u00e8tes |
+| `contact.html` | Formulaire de contact + coordonnées complètes |
 | `footer.html` | Fragment de pied de page inclus dans les autres pages |
 
 ## Fichiers
 
-| Fichier | R\u00f4le |
+| Fichier | Rôle |
 |---|---|
-| `styles.css` | Styles du site (Montserrat / Open Sans via Google Fonts) |
-| `script.js` | Carte Leaflet, carrousel, rotation des sponsors, menu mobile, formulaire, email obfusqu\u00e9 |
+| `styles.css` | Styles du site et des pages d'administration (Montserrat / Open Sans via Google Fonts) |
+| `script.js` | Carte Leaflet, carrousel et sponsors chargés depuis les JSON, menu mobile, formulaire, email obfusqué |
 | `images/logo.png` | Logo du club |
+
+### Pages d'administration (nécessitent PHP)
+
+| Fichier | Rôle |
+|---|---|
+| `admin-lib.php` | Bibliothèque partagée : authentification, lecture/écriture JSON, upload d'images |
+| `admin-sponsors.php` | Gestion des sponsors : liste avec miniatures, ajout, modification, suppression |
+| `admin-evenements.php` | Gestion des événements du carrousel : liste, ajout, modification, suppression |
+
+## Gestion du contenu (sponsors et événements)
+
+Le contenu n'est **pas** codé dans les fichiers du site : il vit dans deux
+fichiers JSON lus au chargement des pages :
+
+- `sponsors.json` — liste des sponsors (nom, URL, image), affichés en
+  rotation sur l'accueil et la page contact
+- `evenements.json` — liste des événements (titre, image), affichés dans le
+  carrousel de l'accueil
+
+Ces fichiers, le fichier de mot de passe et les dossiers
+`images/sponsors/` et `images/evenements/` sont **exclus du dépôt Git** :
+ils sont créés et modifiés uniquement sur le serveur via les pages
+d'administration.
+
+### Utilisation
+
+1. Ouvrir `admin-sponsors.php` ou `admin-evenements.php` dans le navigateur
+2. Saisir le mot de passe (fichier `admin-mot-de-passe.php`, voir ci-dessous)
+3. Ajouter / modifier / supprimer ; la liste existante est affichée avec
+   miniatures et positions, et les changements sont visibles immédiatement
+   sur le site
+
+### Configuration obligatoire : `admin-mot-de-passe.php`
+
+Les deux pages d'administration sont protégées par un mot de passe stocké
+dans `admin-mot-de-passe.php`, à créer à la racine du site **sur le serveur
+uniquement**. Ce fichier est exclu par le `.gitignore` et ne doit jamais
+être commité.
+
+Modèle :
+
+```php
+<?php
+return 'votre mot de passe';
+```
+
+### Déploiement et mises à jour du site
+
+Les données étant séparées du code, une mise à jour du site ne doit jamais
+les écraser :
+
+```bash
+rsync -rv --delete \
+  --exclude='.git' \
+  --exclude='sponsors.json' \
+  --exclude='evenements.json' \
+  --exclude='admin-mot-de-passe.php' \
+  --exclude='images/sponsors/' \
+  --exclude='images/evenements/' \
+  site-web/ serveur:/var/www/my_webapp/www/
+```
+
+Sur YunoHost (My Webapp) : activer PHP dans la configuration de l'app ;
+les pages d'administration sont alors servies telles quelles.
 
 ## Inclusion du footer (SSI)
 
@@ -33,39 +99,38 @@ Aucune build, aucun framework : HTML/CSS/JS purs, servables tels quels.
 ```
 
 C'est une inclusion **Server Side Include** : elle ne fonctionne que servie
-par un serveur HTTP avec SSI activ\u00e9 (Apache avec `mod_include`), pas en
-ouvrant le fichier directement depuis le disque. `contact.html` a son footer
-en dur pour cette raison.
+par un serveur HTTP avec SSI activé (ex. nginx avec `ssi on;`), pas en
+ouvrant le fichier directement depuis le disque. `contact.html` a son
+footer en dur pour cette raison.
 
-## D\u00e9pendances externes
+## Dépendances externes
 
-- **Leaflet 1.9.4** (carte OpenStreetMap) \u2014 charg\u00e9 via CDN sur `index.html`
-- **Google Fonts** (Montserrat, Open Sans) \u2014 charg\u00e9es via CDN sur toutes
+- **Leaflet 1.9.4** (carte OpenStreetMap) — chargé via CDN sur `index.html`
+- **Google Fonts** (Montserrat, Open Sans) — chargées via CDN sur toutes
   les pages
 
 Le site fonctionne hors ligne, mais sans carte ni polices.
 
 ## Publication
 
-Ouverture locale (footer SSI non r\u00e9solu, sauf pour `contact.html`) :
+Ouverture locale (footer SSI non résolu, sauf pour `contact.html` ; pages
+d'administration non fonctionnelles sans PHP) :
 
 ```bash
 cd site-web && python -m http.server 8000
 ```
 
-En production, d\u00e9ployer le dossier tel quel sur un h\u00e9bergement avec SSI
-activ\u00e9 (ex. Apache : `Options Includes`, fichiers `.shtml` ou `XBitHack`).
-
 ## Formulaire de contact
 
 Attention : le formulaire (`contact.html`) est actuellement purement
-d\u00e9coratif \u2014 l'action est vide et l'envoi affiche seulement une alerte
-c\u00f4t\u00e9 navigateur. Aucun email n'est r\u00e9ellement transmis. \u00c0 brancher sur un
+décoratif — l'action est vide et l'envoi affiche seulement une alerte côté
+navigateur. Aucun email n'est réellement transmis. À brancher sur un
 service d'envoi (ex. le script du dossier `notif-inscriptions` ou un
 service type Formspree) avant la mise en production.
 
-## Sponsors
+## Sponsors et événements
 
-La rotation des sponsors (`script.js`) utilise actuellement des logos SVG
-de placeholder et des URL `*.example.com` \u00e0 remplacer par les vrais
-partenaires.
+Tant que `sponsors.json` est absent ou vide, la section sponsors est
+masquée sur les pages publiques. Tant que `evenements.json` est absent ou
+vide, le carrousel affiche les slides présents dans `index.html`
+(placeholders à remplacer par de vraies photos via l'administration).
