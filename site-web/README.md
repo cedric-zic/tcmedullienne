@@ -88,7 +88,10 @@ rsync -rv --delete \
 ```
 
 Sur YunoHost (My Webapp) : activer PHP dans la configuration de l'app ;
-les pages d'administration sont alors servies telles quelles.
+les pages d'administration sont alors servies telles quelles. La limite
+d'upload nginx par défaut (1 Mo) est inférieure aux 5 Mo autorisés par les
+pages d'administration : la relever via le fichier SSI ci-dessous
+(`client_max_body_size`).
 
 ## Inclusion du footer (SSI)
 
@@ -102,6 +105,30 @@ C'est une inclusion **Server Side Include** : elle ne fonctionne que servie
 par un serveur HTTP avec SSI activé (ex. nginx avec `ssi on;`), pas en
 ouvrant le fichier directement depuis le disque. `contact.html` a son
 footer en dur pour cette raison.
+
+### Activation sur YunoHost (nginx)
+
+Ne pas éditer `my_webapp.conf` (régénéré à chaque upgrade ou changement de
+configuration de l'app) : le dossier `my_webapp.d/` est l'emplacement
+prévu par l'app pour les personnalisations persistantes — son contenu est
+inclus par le template nginx officiel et conservé lors des upgrades.
+
+```bash
+cat > /etc/nginx/conf.d/www.tcmedullienne.local.d/my_webapp.d/ssi.conf <<'EOF'
+ssi on;
+client_max_body_size 10M;
+EOF
+
+systemctl reload nginx
+```
+
+- `ssi on;` active l'inclusion du footer (s'applique à tout le site servi
+  à la racine) ;
+- `client_max_body_size 10M;` relève la limite d'upload nginx (1 Mo par
+  défaut) au-dessus des 5 Mo acceptés par les pages d'administration.
+
+Après un `yunohost app change-url` ou une reconfiguration de l'app, ces
+fichiers personnalisés sont conservés (contrairement à `my_webapp.conf`).
 
 ## Dépendances externes
 
