@@ -10,7 +10,7 @@ vérification des reçus de paiement, et site web statique.
  | `notif-inscriptions/` | Envoi des emails de confirmation/relance/annulation d'inscription | Actif |
  | `macros-inscriptions/` | Gestion des macros du fichier `.ods` des adhérents | Actif |
  | `recus-paiement/` | Génération des reçus + vérification d'authenticité | Actif |
- | `site-web/` | Site web statique du club | À venir |
+ | `site-web/` | Site web statique du club (accueil, tennis, padel, contact) | Actif |
 
 Chaque dossier a son propre `README.md` décrivant l'usage, les dépendances et
 la configuration.
