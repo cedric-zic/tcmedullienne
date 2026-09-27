@@ -16,7 +16,7 @@ __pycache__/
 # Données gérées via les pages d'administration du site (jamais commitées)
 site-web/sponsors.json
 site-web/evenements.json
-site-web/admin-mot-de-passe.php
+**/.admin-mot-de-passe.php
 site-web/images/sponsors/
 site-web/images/evenements/
 

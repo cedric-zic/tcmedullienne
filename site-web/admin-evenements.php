@@ -16,7 +16,7 @@ $mot_de_passe_attendu = mot_de_passe_admin();
 
 if ($mot_de_passe_attendu === null) {
     http_response_code(500);
-    exit('Configuration manquante : créez le fichier admin-mot-de-passe.php à côté de cette page (voir site-web/README.md).');
+    exit('Configuration manquante : créez le fichier .admin-mot-de-passe.php dans le dossier parent de la racine web (voir site-web/README.md).');
 }
 
 $message_erreur = '';
