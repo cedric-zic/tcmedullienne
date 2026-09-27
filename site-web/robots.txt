@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin-sponsors.php
+Disallow: /admin-evenements.php
+Disallow: /admin-mot-de-passe.php
+Disallow: /admin-lib.php

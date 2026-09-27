@@ -130,6 +130,53 @@ systemctl reload nginx
 Après un `yunohost app change-url` ou une reconfiguration de l'app, ces
 fichiers personnalisés sont conservés (contrairement à `my_webapp.conf`).
 
+### Limitation de débit sur les requêtes POST des pages admin
+
+Les pages d'administration n'ont pas de blocage après échecs de mot de
+passe : la limitation de débit nginx freine la force brute. Créer un
+second fichier dans le même dossier :
+
+```bash
+cat > /etc/nginx/conf.d/www.tcmedullienne.local.d/my_webapp.d/limite-debit.conf <<'EOF'
+limit_req_zone $binary_remote_addr zone=zone_admin:10m rate=10r/m;
+
+location ~ ^/(admin-sponsors|admin-evenements)\.php$ {
+    limit_req zone=zone_admin burst=5 nodelay;
+    limit_req_status 429;
+    fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+    include fastcgi_params;
+    fastcgi_index index.php;
+    fastcgi_pass unix:/run/php/php8.4-fpm-my_webapp.sock;
+    fastcgi_param REMOTE_USER $remote_user;
+    fastcgi_param PATH_INFO $fastcgi_path_info;
+    fastcgi_param SCRIPT_FILENAME $request_filename;
+}
+EOF
+
+systemctl reload nginx
+```
+
+- `rate=10r/m` : 10 requêtes par minute et par adresse IP en moyenne,
+  `burst=5` tolère les rafales légitimes (formulaire + upload) ;
+- au-delà, nginx répond `429 Too Many Requests` ;
+- `fastcgi_pass` : adapter le chemin du socket à la version PHP activée
+  (il figure dans `/etc/nginx/conf.d/www.tcmedullienne.local.d/my_webapp.conf`,
+  section PHP) ; les autres directives `fastcgi_*` reprennent celles de
+  l'app pour que PHP s'exécute à l'identique ;
+- pour vérifier que la limite fonctionne : soumettre des requêtes
+  répétées et observer l'apparition de réponses 429.
+
+## Indexation (robots.txt)
+
+`robots.txt` à la racine du site demande aux moteurs légitimes (Google,
+Bing...) de ne pas indexer les pages d'administration ni le fichier de
+mot de passe. Nuance : les scanners malveillants l'ignorent — la
+protection réelle reste le mot de passe (long, généré) et la limitation
+de débit ci-dessus.
+
+`admin-lib.php` n'est pas listé car un accès direct ne fait rien d'autre
+que définir des fonctions (aucune sortie) ; les trois autres le sont.
+
 ## Dépendances externes
 
 - **Leaflet 1.9.4** (carte OpenStreetMap) — chargé via CDN sur `index.html`
