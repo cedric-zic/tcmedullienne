@@ -13,4 +13,11 @@ __pycache__/
 # Données réelles (à garder hors Git)
 *.ods
 *.xlsx
+# Données gérées via les pages d'administration du site (jamais commitées)
+site-web/sponsors.json
+site-web/evenements.json
+site-web/admin-mot-de-passe.php
+site-web/images/sponsors/
+site-web/images/evenements/
+
 # ... sauf si tu veux versionner des modèles .ods vierges → ajuste

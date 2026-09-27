@@ -2,7 +2,7 @@
 function initMap() {
     const map = L.map('map').setView([45.024, -0.78], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     }).addTo(map);
 
     // Markers for the two sites with precise GPS coordinates
@@ -12,9 +12,9 @@ function initMap() {
         .bindPopup("TC Médullienne - Avensan (33480)");
 }
 
-// Carousel Logic
+// Carousel Logic (slides loaded from evenements.json)
 let currentSlide = 0;
-const totalSlides = 3;
+let totalSlides = 0;
 
 function showSlide(index) {
     const carouselInner = document.getElementById('carouselInner');
@@ -24,56 +24,104 @@ function showSlide(index) {
 }
 
 function nextSlide() {
+    if (totalSlides === 0) return;
     currentSlide = (currentSlide + 1) % totalSlides;
     showSlide(currentSlide);
 }
 
 function prevSlide() {
+    if (totalSlides === 0) return;
     currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
     showSlide(currentSlide);
 }
 
-// Auto-advance carousel every 5 seconds
-setInterval(nextSlide, 5000);
+async function chargerEvenements() {
+    const carouselInner = document.getElementById('carouselInner');
+    if (!carouselInner) return;
 
-// Sponsor Rotation Logic
-const sponsors = [
-    { name: "Sponsor 1", url: "https://sponsor1.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230077B6' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 1%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 2", url: "https://sponsor2.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%2300B4D8' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 2%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 3", url: "https://sponsor3.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230096C7' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 3%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 4", url: "https://sponsor4.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230077B6' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 4%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 5", url: "https://sponsor5.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%2300B4D8' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 5%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 6", url: "https://sponsor6.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230096C7' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 6%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 7", url: "https://sponsor7.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230077B6' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 7%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 8", url: "https://sponsor8.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%2300B4D8' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 8%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 9", url: "https://sponsor9.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230096C7' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 9%3C/text%3E%3C/svg%3E" },
-    { name: "Sponsor 10", url: "https://sponsor10.example.com", img: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 150 100'%3E%3Crect fill='%230077B6' width='150' height='100'/%3E%3Ctext x='75' y='50' text-anchor='middle' fill='white' font-size='12'%3ESponsor 10%3C/text%3E%3C/svg%3E" }
-];
+    let evenements = [];
+    try {
+        const reponse = await fetch('evenements.json', { cache: 'no-store' });
+        if (reponse.ok) {
+            const donnees = await reponse.json();
+            if (Array.isArray(donnees)) evenements = donnees;
+        }
+    } catch (erreur) {
+        console.warn('evenements.json indisponible :', erreur);
+    }
 
+    if (evenements.length === 0) return;
+
+    carouselInner.innerHTML = '';
+    for (const evenement of evenements) {
+        const item = document.createElement('div');
+        item.className = 'carousel-item';
+
+        const image = document.createElement('img');
+        image.src = evenement.image;
+        image.alt = evenement.titre || 'Événement';
+
+        const caption = document.createElement('div');
+        caption.className = 'carousel-caption';
+        caption.textContent = evenement.titre || '';
+
+        item.appendChild(image);
+        item.appendChild(caption);
+        carouselInner.appendChild(item);
+    }
+
+    totalSlides = evenements.length;
+    currentSlide = 0;
+    showSlide(0);
+    setInterval(nextSlide, 5000);
+}
+
+// Sponsor Rotation Logic (sponsors loaded from sponsors.json)
+let sponsors = [];
 let currentSponsorIndex = 0;
+let sponsorTimer = null;
 
 function showSponsor(index) {
     const sponsor = sponsors[index];
     const sponsorLink = document.getElementById('sponsorLink');
     const sponsorImage = document.getElementById('sponsorImage');
-    
-    if (sponsorLink && sponsorImage) {
-        sponsorLink.href = sponsor.url;
-        sponsorImage.src = sponsor.img;
-        sponsorImage.alt = sponsor.name;
+
+    if (sponsor && sponsorLink && sponsorImage) {
+        sponsorLink.href = sponsor.url || '#';
+        sponsorImage.src = sponsor.image;
+        sponsorImage.alt = sponsor.nom || 'Sponsor';
     }
 }
 
 function nextSponsor() {
+    if (sponsors.length === 0) return;
     currentSponsorIndex = (currentSponsorIndex + 1) % sponsors.length;
     showSponsor(currentSponsorIndex);
 }
 
-// Initialize sponsor display
-showSponsor(currentSponsorIndex);
+async function chargerSponsors() {
+    const sponsorContainer = document.getElementById('sponsorContainer');
+    if (!sponsorContainer) return;
 
-// Auto-advance sponsor every 3 seconds
-setInterval(nextSponsor, 3000);
+    try {
+        const reponse = await fetch('sponsors.json', { cache: 'no-store' });
+        if (reponse.ok) {
+            const donnees = await reponse.json();
+            if (Array.isArray(donnees)) sponsors = donnees;
+        }
+    } catch (erreur) {
+        console.warn('sponsors.json indisponible :', erreur);
+    }
+
+    if (sponsors.length === 0) {
+        const section = sponsorContainer.closest('section.sponsors');
+        if (section) section.style.display = 'none';
+        return;
+    }
+
+    showSponsor(0);
+    sponsorTimer = setInterval(nextSponsor, 3000);
+}
 
 // Mobile Menu Toggle
 function toggleMenu() {
@@ -100,5 +148,12 @@ document.addEventListener('DOMContentLoaded', function() {
     emailLink.href = 'mailto:' + email;
     emailLink.textContent = email;
     emailLink.classList.add('call-btn');
-    document.getElementById('email-obfuscated').appendChild(emailLink);
+    const cible = document.getElementById('email-obfuscated');
+    if (cible) cible.appendChild(emailLink);
+});
+
+// Load dynamic content
+document.addEventListener('DOMContentLoaded', function() {
+    chargerEvenements();
+    chargerSponsors();
 });
