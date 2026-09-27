@@ -16,7 +16,7 @@ import logging
 import os
 import pandas as pd
 from pathlib import Path
-from PIL import Image   # Pour rotater/redimensionner les images
+from PIL import Image, ImageChops   # Pour rotater/redimensionner et comparer les images
 import pymupdf          # Pour manipuler les PDF
 import re
 import smtplib
@@ -189,6 +189,66 @@ def ajouter_tampon_au_pdf(
                 os.rmdir(temp_dir)
             except:
                 pass
+
+# --- FONCTION POUR VÉRIFIER SI UN TAMPON EST DÉJÀ PRÉSENT SUR UN PDF ---
+def tampon_deja_present(
+    pdf_path: str,
+    image_path: str,
+    rotation: float = 0,
+    max_size: tuple = (200, 200),
+    page_index: int = 0
+) -> bool:
+    """
+    Détecte si le tampon (après transformation identique à l'insertion :
+    rotation + redimensionnement) figure déjà parmi les images de la page.
+    Évite d'empiler plusieurs tampons identiques quand un envoi échoue
+    et que le script est relancé sur la même fiche.
+    """
+    SEUIL_PIXEL = 16
+    TOLERANCE_DIFF = 0.05
+    try:
+        ref = Image.open(image_path).convert("RGBA")
+        if rotation != 0:
+            ref = ref.rotate(rotation, expand=True, resample=Image.BICUBIC)
+        if max_size:
+            ref.thumbnail(max_size, Image.BICUBIC)
+
+        doc = pymupdf.open(pdf_path)
+        try:
+            if page_index >= len(doc):
+                return False
+            page = doc[page_index]
+            for img_info in page.get_images(full=True):
+                xref, smask = img_info[0], img_info[1]
+                try:
+                    pix = pymupdf.Pixmap(doc, xref)
+                    if pix.alpha:
+                        rgba = Image.frombytes("RGBA", (pix.width, pix.height), pix.samples)
+                    else:
+                        rgb = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                        rgba = rgb.convert("RGBA")
+                        if smask > 0:
+                            spix = pymupdf.Pixmap(doc, smask)
+                            alpha = Image.frombytes("L", (spix.width, spix.height), spix.samples)
+                            rgba.putalpha(alpha)
+                except Exception:
+                    continue
+                if rgba.size != ref.size:
+                    continue
+                diff = ImageChops.difference(rgba, ref)
+                r, g, b, a = diff.split()
+                ecart = ImageChops.lighter(ImageChops.lighter(r, g), ImageChops.lighter(b, a))
+                ecart = ecart.point(lambda v: 255 if v > SEUIL_PIXEL else 0)
+                hist = ecart.histogram()
+                nb_pixels = ecart.width * ecart.height
+                if nb_pixels and hist[255] / nb_pixels <= TOLERANCE_DIFF:
+                    return True
+            return False
+        finally:
+            doc.close()
+    except Exception as e:
+        logger.warning(f"⚠️ Impossible de vérifier la présence du tampon ({e}) : insertion tentée quand même.")
+        return False
 
 # --- FONCTIONS DE NORMALISATION ---
 def remove_accents(input_str):
@@ -740,15 +800,18 @@ def main():
                 
                 if attachment_path:
                     try:
-                        # Appliquer le tampon PROF
-                        ajouter_tampon_au_pdf(
-                            pdf_path=attachment_path,
-                            image_path=TAMPON_PROF_PATH,
-                            position_percent=(0.33, 0.70),
-                            rotation=0,
-                            output_path=attachment_path
-                        )
-                        logger.info(f"🖌️ Tampon PROF ajouté à la fiche de {prenom} {nom}")
+                        # Appliquer le tampon PROF (sauf s'il est déjà présent)
+                        if tampon_deja_present(attachment_path, TAMPON_PROF_PATH, rotation=0):
+                            logger.info(f"ℹ️ Tampon PROF déjà présent sur la fiche de {prenom} {nom} : pas de nouvel ajout")
+                        else:
+                            ajouter_tampon_au_pdf(
+                                pdf_path=attachment_path,
+                                image_path=TAMPON_PROF_PATH,
+                                position_percent=(0.33, 0.70),
+                                rotation=0,
+                                output_path=attachment_path
+                            )
+                            logger.info(f"🖌️ Tampon PROF ajouté à la fiche de {prenom} {nom}")
                         
                         # Mettre à jour le champ "Fiche numérisée"
                         update_fiche_numerisee_status(
@@ -786,15 +849,18 @@ def main():
                 continue
             
             try:
-                # Appliquer le tampon ANNULÉ
-                ajouter_tampon_au_pdf(
-                    pdf_path=attachment_path,
-                    image_path=TAMPON_ANNULE_PATH,
-                    position_percent=(0.33, 0.30),
-                    rotation=45,
-                    output_path=attachment_path
-                )
-                logger.info(f"🖌️ Tampon ANNULÉ ajouté à la fiche de {prenom} {nom}")
+                # Appliquer le tampon ANNULÉ (sauf s'il est déjà présent)
+                if tampon_deja_present(attachment_path, TAMPON_ANNULE_PATH, rotation=45):
+                    logger.info(f"ℹ️ Tampon ANNULÉ déjà présent sur la fiche de {prenom} {nom} : pas de nouvel ajout")
+                else:
+                    ajouter_tampon_au_pdf(
+                        pdf_path=attachment_path,
+                        image_path=TAMPON_ANNULE_PATH,
+                        position_percent=(0.33, 0.30),
+                        rotation=45,
+                        output_path=attachment_path
+                    )
+                    logger.info(f"🖌️ Tampon ANNULÉ ajouté à la fiche de {prenom} {nom}")
                 
                 # Envoyer l'email d'annulation
                 subject = SUBJECT.format(prenom=prenom, nom=nom) + " - Annulé"
@@ -931,14 +997,17 @@ def main():
                     # Appliquer le tampon PAYÉ pour les paiements complets
                     # (même position et rotation que le tampon ANNULÉ)
                     if str(paiement).strip() in ["Oui", "Remboursement"]:
-                        ajouter_tampon_au_pdf(
-                            pdf_path=attachment_path,
-                            image_path=TAMPON_PAYE_PATH,
-                            position_percent=(0.33, 0.30),
-                            rotation=45,
-                            output_path=attachment_path
-                        )
-                        logger.info(f"🖋️ Tampon PAYÉ ajouté à la fiche de {prenom} {nom}")
+                        if tampon_deja_present(attachment_path, TAMPON_PAYE_PATH, rotation=45):
+                            logger.info(f"ℹ️ Tampon PAYÉ déjà présent sur la fiche de {prenom} {nom} : pas de nouvel ajout")
+                        else:
+                            ajouter_tampon_au_pdf(
+                                pdf_path=attachment_path,
+                                image_path=TAMPON_PAYE_PATH,
+                                position_percent=(0.33, 0.30),
+                                rotation=45,
+                                output_path=attachment_path
+                            )
+                            logger.info(f"🖋️ Tampon PAYÉ ajouté à la fiche de {prenom} {nom}")
 
                     if send_email(email, subject, html_body, attachment_path, args.test, logo_path=LOGO_PATH, adherent=adherent):
                         today = datetime.now().strftime("%d/%m/%Y")
