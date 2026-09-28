@@ -634,8 +634,8 @@ footer {
 
 .store-badges {
     display: flex;
-    justify-content: center;
-    gap: 2.5rem;
+    justify-content: space-evenly;
+    gap: 10rem;
     flex-wrap: wrap;
     margin: 1.5rem 0;
 }
