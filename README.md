@@ -12,6 +12,7 @@ vérification des reçus de paiement, et site web statique.
  | `recus-paiement/` | Génération des reçus + vérification d'authenticité | Actif |
  | `site-web/` | Site web statique du club (accueil, tennis, padel, contact) | Actif |
 | `compacter-pdf/` | Compression par lot des PDF scannés (fiches, reçus) | Actif |
+| `analyse-comptes/` | Croisement inscriptions / comptes LiveXp / suivi, synthèse Excel + rapport | Actif |
 
 Chaque dossier a son propre `README.md` décrivant l'usage, les dépendances et
 la configuration.
