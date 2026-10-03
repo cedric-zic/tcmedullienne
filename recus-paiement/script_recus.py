@@ -216,6 +216,7 @@ def generer_recus(mode_test=False):
     if not a_generer:
         print("Aucun reçu à générer (aucune ligne avec 'demandé' et montant valide).")
         return
+    textes_formules = charger_textes_formules()
 
     print(f"\n{len(a_generer)} reçu(s) à générer :\n")
     print(f"{'Nom':<20} {'Prénom':<15} {'Montant':<8}")
@@ -258,10 +259,17 @@ def generer_recus(mode_test=False):
 
         document.add_paragraph(f"Nous confirmons que {prenom} {nom} est inscrit(e) au Tennis Club La Médullienne pour la saison tennistique {sportiveYear} avec la formule "
                               f"{formule}. La cotisation d'un montant total de {montant}€ a bien été acquittée. Celle-ci inclue: ")
-        document.add_paragraph("    - l'adhésion au club")
-        document.add_paragraph("    - la licence FFT multi-raquettes")
-        document.add_paragraph("    - la réservation gratuite des terrains en illimité")
-        document.add_paragraph("    - les cours avec un professeur diplômé, pour les enfants.")
+        elements_formule = textes_formules.get(formule) or textes_formules.get(formule.casefold())
+        if not elements_formule:
+            logger.warning(f"Formule '{formule}' absente de '{FEUILLE_TEXTES_FORMULES}' : liste generique utilisee.")
+            elements_formule = [
+                "l'adhésion au club",
+                "la licence FFT multi-raquettes",
+                "la réservation gratuite des terrains en illimité",
+                "les cours avec un professeur diplômé, pour les enfants.",
+            ]
+        for element in elements_formule:
+            document.add_paragraph(f"    - {element}")
 
         document.add_paragraph("")
         document.add_paragraph("Fait pour valoir ce que de droit.")
@@ -336,6 +344,7 @@ def charger_textes_formules():
                 elements.append(element)
         if elements:
             correspondance[formule] = elements
+            correspondance.setdefault(formule.casefold(), elements)
     logger.info(f"{len(correspondance)} formule(s) chargees depuis '{FEUILLE_TEXTES_FORMULES}'.")
     return correspondance
 
