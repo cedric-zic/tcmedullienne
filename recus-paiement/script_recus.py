@@ -152,10 +152,22 @@ def maj_statut_recu(ligne, statut):
     """
     doc = ezodf.opendoc(ods_path())
     feuille = doc.sheets[0]  # Liste_adherents est la première feuille
-    cellule = feuille[COL_DEMANDE_RECU, ligne]
+    cellule = feuille[ligne, COL_DEMANDE_RECU]
     cellule.set_value(statut)
     doc.save()
     logger.info(f"Ligne {ligne + 1} : statut demande reçu -> {statut}")
+
+
+def valeur_cellule(feuille, col, row):
+    """
+    Lecture sûre d'une cellule dans l'ordre ezodf (row, col) :
+    LibreOffice peut compacter les cellules vides, une ligne peut donc
+    contenir moins de cellules que prévu (lève IndexError dans ce cas).
+    """
+    try:
+        return feuille[row, col].value
+    except IndexError:
+        return None
 
 
 def lire_lignes_ods():
@@ -168,14 +180,14 @@ def lire_lignes_ods():
     feuille = doc.sheets[0]
     resultats = []
     for idx in range(DATA_START_ROW, feuille.nrows()):
-        nom = str(feuille[COL_NOM, idx].value or "").strip()
+        nom = str(valeur_cellule(feuille, COL_NOM, idx) or "").strip()
         if not nom:
             continue
-        prenom = str(feuille[COL_PRENOM, idx].value or "").strip()
-        formule = str(feuille[COL_FORMULE, idx].value or "").strip()
-        email = str(feuille[COL_EMAIL, idx].value or "").strip()
-        statut = str(feuille[COL_DEMANDE_RECU, idx].value or "").strip().lower()
-        montant = feuille[COL_MONTANT, idx].value
+        prenom = str(valeur_cellule(feuille, COL_PRENOM, idx) or "").strip()
+        formule = str(valeur_cellule(feuille, COL_FORMULE, idx) or "").strip()
+        email = str(valeur_cellule(feuille, COL_EMAIL, idx) or "").strip()
+        statut = str(valeur_cellule(feuille, COL_DEMANDE_RECU, idx) or "").strip().lower()
+        montant = valeur_cellule(feuille, COL_MONTANT, idx)
         try:
             montant = int(round(float(montant))) if montant not in (None, "") else 0
         except (TypeError, ValueError):
@@ -304,7 +316,7 @@ def charger_textes_formules():
     premiere_ligne = 1 if feuille.nrows() > 1 else 0
     for idx in range(premiere_ligne, feuille.nrows()):
         try:
-            formule = str(feuille[0, idx].value or "").strip()
+            formule = str(feuille[idx, 0].value or "").strip()
         except IndexError:
             break  # fin reelle de la feuille (lignes non ecrites)
         if not formule:
@@ -312,7 +324,7 @@ def charger_textes_formules():
         elements = []
         for col in range(1, 6):  # colonnes B a F : jusqu'a 5 elements
             try:
-                element = str(feuille[col, idx].value or "").strip()
+                element = str(feuille[idx, col].value or "").strip()
             except IndexError:
                 break
             if element:
