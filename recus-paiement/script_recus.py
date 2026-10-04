@@ -1,4 +1,5 @@
 import ezodf
+import glob
 import hashlib
 import hmac
 import locale
@@ -47,6 +48,8 @@ except ImportError:
 # --- CONFIGURATION ---
 WORK_DIR = "P:/2026-2027/Adhérents/"
 FICHIER_SOURCE = "gestion_adherents_2026-2027.ods"
+OLD_DOCS_DIR = os.path.join(WORK_DIR, "OLD_Docs")
+OLD_DOCS_KEPT = 5
 TEMPLATE_FACTURE = "Modele_doc/Modele_recu_paiement_2026.docx"
 EXPORT_DIR = "Recu_paiements/"
 SIGNATURE_IMG = "Modele_doc/signature_cedric.jpg"
@@ -138,12 +141,26 @@ def ods_path():
 
 
 def sauvegarde_ods():
-    """Copie de sécurité de l'ODS avant modification (une à chaque exécution)."""
+    """
+    Copie de sécurité de l'ODS avant modification (une à chaque exécution).
+    Rotation : la sauvegarde la plus récente reste dans WORK_DIR ; les
+    précédentes sont déplacées vers OLD_DOCS_DIR, où seules les 5 dernières
+    sont conservées (les autres fichiers du dossier y sont ignorés).
+    """
     src = ods_path()
     horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
+    motif = f"sauvegarde_{FICHIER_SOURCE}.*.bak"
+    os.makedirs(OLD_DOCS_DIR, exist_ok=True)
+    for ancienne in glob.glob(os.path.join(WORK_DIR, motif)):
+        shutil.move(ancienne, os.path.join(OLD_DOCS_DIR, os.path.basename(ancienne)))
     dst = os.path.join(WORK_DIR, f"sauvegarde_{FICHIER_SOURCE}.{horodatage}.bak")
     shutil.copy2(src, dst)
     logger.info(f"Sauvegarde de sécurité créée : {dst}")
+    vieilles = sorted(glob.glob(os.path.join(OLD_DOCS_DIR, motif)),
+                      key=os.path.getmtime, reverse=True)
+    for trop_vieille in vieilles[OLD_DOCS_KEPT:]:
+        os.remove(trop_vieille)
+        logger.info(f"Vieille sauvegarde supprimée : {trop_vieille}")
 
 
 def maj_statut_recu(ligne, statut):
