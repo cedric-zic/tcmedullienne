@@ -25,6 +25,7 @@ Dependances : pandas, openpyxl, odfpy
   pip install pandas openpyxl odfpy
 """
 
+import glob
 import os
 import re
 import shutil
@@ -416,16 +417,30 @@ def ajuster_largeurs(ws):
     ws.freeze_panes = "A2"
 
 
-def sauvegarde_securise(chemin: str):
-    """Copie le fichier de suivi existant avec un horodatage avant reecriture."""
+def sauvegarde_securise(chemin: str, dossier_old: str, nb_conservees: int = 5):
+    """
+    Copie le fichier de suivi existant avec un horodatage avant reecriture.
+    Rotation : la sauvegarde la plus recente reste a cote du fichier ; les
+    precedentes sont deplacees vers dossier_old, ou seules les nb_conservees
+    dernieres sont conservees (les autres fichiers du dossier sont ignores).
+    """
     if not os.path.exists(chemin):
         return
     base, ext = os.path.splitext(chemin)
     horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
-    cible = f"{base}_sauvegarde_{horodatage}{ext}"
+    motif = f"{os.path.basename(base)}_sauvegarde_*{ext}"
     try:
+        os.makedirs(dossier_old, exist_ok=True)
+        for ancienne in glob.glob(os.path.join(os.path.dirname(chemin), motif)):
+            shutil.move(ancienne, os.path.join(dossier_old, os.path.basename(ancienne)))
+        cible = f"{base}_sauvegarde_{horodatage}{ext}"
         shutil.copy2(chemin, cible)
         print(f"[i] Sauvegarde precedente : {cible}")
+        vieilles = sorted(glob.glob(os.path.join(dossier_old, motif)),
+                          key=os.path.getmtime, reverse=True)
+        for trop_vieille in vieilles[nb_conservees:]:
+            os.remove(trop_vieille)
+            print(f"[i] Vieille sauvegarde supprimee : {trop_vieille}")
     except Exception as e:
         print(f"[!] Sauvegarde impossible : {e}")
 
@@ -668,7 +683,7 @@ def main():
     # --- ECRITURE DU CLASSEUR -------------------------------------------
     os.makedirs(DOSSIER_TRAVAIL, exist_ok=True)
     out_xlsx = chemin_suivi
-    sauvegarde_securise(out_xlsx)
+    sauvegarde_securise(out_xlsx, os.path.join(DOSSIER_TRAVAIL, "OLD_Docs"))
 
     feuilles = {
         "Suivi": df_suivi,
