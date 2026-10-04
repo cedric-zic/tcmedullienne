@@ -11,6 +11,7 @@ import ezodf
 from ezodf import Cell  # Ajoute cette ligne
 from fpdf import FPDF
 #from email.mime.image import MIMEImage
+import glob
 import io               # Pour gérer les flux de bytes
 import logging
 import os
@@ -48,6 +49,9 @@ except ImportError:
     )
 
 SOURCE_FILE = r"P:/2026-2027/Adhérents/gestion_adherents_2026-2027.ods"
+DOSSIER_TRAVAIL = os.path.dirname(SOURCE_FILE)
+DOSSIER_OLD_DOCS = os.path.join(DOSSIER_TRAVAIL, "OLD_Docs")
+SAUVEGARDES_CONSERVEES = 5
 ATTACHMENTS_DIR = r"P:/2026-2027/Adhérents/Fiches_inscriptions"
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -843,12 +847,38 @@ def read_calc_data(ods_file):
         return [], [], False
 
 # --- FONCTION PRINCIPALE (MODIFIÉE POUR RÉESSAYER LES ERREURS) ---
+def sauvegarde_ods():
+    """
+    Copie de sécurité de l'ODS avant modification (une à chaque exécution).
+    Rotation : la sauvegarde la plus récente reste dans le dossier courant ;
+    les précédentes sont déplacées vers OLD_Docs, où seules les 5 dernières
+    sont conservées (les autres fichiers du dossier y sont ignorés).
+    """
+    if not os.path.exists(SOURCE_FILE):
+        return
+    nom_fichier = os.path.basename(SOURCE_FILE)
+    horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
+    motif = f"sauvegarde_notifs_{nom_fichier}.*.bak"
+    os.makedirs(DOSSIER_OLD_DOCS, exist_ok=True)
+    for ancienne in glob.glob(os.path.join(DOSSIER_TRAVAIL, motif)):
+        shutil.move(ancienne, os.path.join(DOSSIER_OLD_DOCS, os.path.basename(ancienne)))
+    dst = os.path.join(DOSSIER_TRAVAIL, f"sauvegarde_notifs_{nom_fichier}.{horodatage}.bak")
+    shutil.copy2(SOURCE_FILE, dst)
+    logger.info(f"Sauvegarde de sécurité créée : {dst}")
+    vieilles = sorted(glob.glob(os.path.join(DOSSIER_OLD_DOCS, motif)),
+                      key=os.path.getmtime, reverse=True)
+    for trop_vieille in vieilles[SAUVEGARDES_CONSERVEES:]:
+        os.remove(trop_vieille)
+        logger.info(f"Vieille sauvegarde supprimée : {trop_vieille}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Envoyer des emails de confirmation d'adhésion.")
     parser.add_argument("--test", action="store_true", help="Mode test: génère un PDF au lieu d'envoyer un email.")
     args = parser.parse_args()
 
     try:
+        sauvegarde_ods()
         adherents, headers, is_transposed = read_calc_data(SOURCE_FILE)
         logger.info(f"🔍 Structure finale : {'TRANSPOSEE' if is_transposed else 'NORMALE'}")
         
