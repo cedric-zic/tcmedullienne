@@ -138,15 +138,12 @@ def ods_path():
 
 
 def sauvegarde_ods():
-    """Copie de sécurité de l'ODS avant modification (une par jour)."""
+    """Copie de sécurité de l'ODS avant modification (une à chaque exécution)."""
     src = ods_path()
-    horodatage = datetime.now().strftime("%Y%m%d")
+    horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
     dst = os.path.join(WORK_DIR, f"sauvegarde_{FICHIER_SOURCE}.{horodatage}.bak")
-    if not os.path.exists(dst):
-        shutil.copy2(src, dst)
-        logger.info(f"Sauvegarde de sécurité créée : {dst}")
-    else:
-        logger.info(f"Sauvegarde du jour déjà présente : {dst}")
+    shutil.copy2(src, dst)
+    logger.info(f"Sauvegarde de sécurité créée : {dst}")
 
 
 def maj_statut_recu(ligne, statut):
