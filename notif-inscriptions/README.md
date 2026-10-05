@@ -7,6 +7,18 @@ Gère trois flux :
 - **Adhérents normaux** — confirmation d'inscription + relance si paiement
   partiel ou non réglé après un mois. Un tampon « Payé » est appliqué sur la
   fiche PDF lorsque l'email confirmant un paiement complet est envoyé.
+
+### Règle de relance
+
+Une relance (paiement partiel ou non réglé) n'est envoyée que si les deux
+conditions sont réunies :
+
+1. **au moins 30 jours** se sont écoulés depuis le dernier email envoyé ;
+2. la date du jour est **le 15 du mois ou après** (`JOUR_MIN_RELANCE = 15`).
+
+Les paiements se font en général en début de mois : cela laisse le temps de
+vérifier si des virements sont passés avant de relancer.
+
 - **Professeurs** — application d'un tampon « Professeur » sur la fiche PDF.
 - **Annulations** — application d'un tampon « Annulé » + email d'annulation.
 
