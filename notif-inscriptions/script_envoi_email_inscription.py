@@ -20,6 +20,7 @@ from pathlib import Path
 from PIL import Image, ImageChops   # Pour rotater/redimensionner et comparer les images
 import pymupdf          # Pour manipuler les PDF
 import re
+import shutil
 import smtplib
 import tempfile
 import time
