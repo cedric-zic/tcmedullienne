@@ -54,6 +54,7 @@ DOSSIER_TRAVAIL = os.path.dirname(SOURCE_FILE)
 DOSSIER_OLD_DOCS = os.path.join(DOSSIER_TRAVAIL, "OLD_Docs")
 SAUVEGARDES_CONSERVEES = 5
 ATTACHMENTS_DIR = r"P:/2026-2027/Adhérents/Fiches_inscriptions"
+JOUR_MIN_RELANCE = 15  # Aucune relance avant le 15 du mois (vérification des virements en début de mois)
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
@@ -305,10 +306,13 @@ def est_transposee_ezodf(sheet, ligne_en_tetes=7):
         return False
 
 
-def is_after_october_first():
-    """Vérifie si la date du jour est après le 1er octobre."""
-    today = datetime.now()
-    return today.month > 10 or (today.month == 10 and today.day >= 1)
+def is_after_15th_of_month():
+    """Vérifie si la date du jour est le 15 du mois ou après.
+
+    Les paiements se font en général en début de mois : on laisse le temps
+    de vérifier les virements avant d'envoyer une relance.
+    """
+    return datetime.now().day >= JOUR_MIN_RELANCE
 
 
 def is_older_than_one_month(date_str):
@@ -1027,14 +1031,14 @@ def main():
                     if status in ["", "Erreur"]:
                         envoyer_email = True
                         is_relance = False
-                    elif (status == "Relancer" and date_envoi and is_older_than_one_month(date_envoi) and is_after_october_first()):
+                    elif (status == "Relancer" and date_envoi and is_after_15th_of_month() and is_older_than_one_month(date_envoi)):
                         envoyer_email = True
                         is_relance = True
                 elif paiement == "Non":
                     if status in ["", "Erreur"]:
                         envoyer_email = True
                         is_relance = False
-                    elif (status == "Relancer" and date_envoi and is_older_than_one_month(date_envoi)):
+                    elif (status == "Relancer" and date_envoi and is_after_15th_of_month() and is_older_than_one_month(date_envoi)):
                         envoyer_email = True
                         is_relance = True
 
