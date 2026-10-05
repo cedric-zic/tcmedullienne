@@ -97,6 +97,29 @@ pip install ezodf pymupdf pillow weasyprint
 - `pillow` — rotation/redimensionnement des images de tampon.
 - `weasyprint` — génération du PDF en mode test.
 
+## Vérification fiches vs ODS : `verifier_fiches_inscriptions.py`
+
+Contrôle de complétude du `.ods` par rapport aux fiches PDF de `Fiches_inscriptions` :
+
+- adhérents de l'ODS **sans** fiche PDF correspondante (fiche perdue après restauration de sauvegarde) ;
+- fiches PDF **sans** ligne correspondante dans l'ODS ;
+- correspondances approximatives à vérifier (inversion nom/prénom, homonymies) ;
+- fiches dont le nommage ne respecte pas la convention `Inscription_2026_{NOM}_{Prenom}.pdf`.
+
+La correspondance utilise la même normalisation que l'envoi des emails (accents,
+casse, tirets), et la même détection de structure de la feuille `Liste_adherents`
+(normale ou transposée). Le script est en **lecture seule** : il ne modifie ni
+l'ODS ni les fiches. Un rapport texte horodaté est écrit à côté du script et le
+script renvoie un code de sortie non nul si des écarts sont détectés.
+
+```bash
+python verifier_fiches_inscriptions.py
+# ou avec des chemins spécifiques
+python verifier_fiches_inscriptions.py --ods "P:/2026-2027/Adhérents/gestion_adherents_2026-2027.ods" --fiches "P:/2026-2027/Adhérents/Fiches_inscriptions"
+```
+
+Dépendance : `ezodf` uniquement.
+
 ## Logs
 
 Fichiers dans `logs/envoi_emails_YYYYMMDD.log`, créés automatiquement à la
