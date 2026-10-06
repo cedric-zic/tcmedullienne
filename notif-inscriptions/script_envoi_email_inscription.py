@@ -1068,7 +1068,8 @@ def main():
             batch = batch[:remaining]
 
             logger.info(f"📤 Envoi du lot {i//BATCH_SIZE + 1} ({len(batch)} emails)...")
-            for row_index, adherent, is_relance in batch:
+            emails_du_lot = len(batch)
+            for rang, (row_index, adherent, is_relance) in enumerate(batch):
                 nom = adherent.get("NOM", "")
                 prenom = adherent.get("PRENOM", "")
                 email = adherent.get("Email", "")
@@ -1132,7 +1133,7 @@ def main():
                         # ✅ Décompte: X/Y (où Y = min(total_to_process, LIMIT_PER_DAY))
                         max_to_send = min(total_to_process, LIMIT_PER_DAY)
                         logger.info(f"✅ Email {total_sent}/{max_to_send} {'simulé' if args.test else 'envoyé'} à {email}")
-                        if not args.test:
+                        if not args.test and rang + 1 < emails_du_lot:
                             logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
                             time.sleep(INTER_EMAIL_DELAY)
                     else:
@@ -1141,7 +1142,7 @@ def main():
                         logger.error(f"❌ Échec de l'envoi pour {email} (problème SMTP)")
                         total_sent += 1
                         logger.info(f"❌ Email {total_sent}/{LIMIT_PER_DAY} {'simulé' if args.test else ' non envoyé'} à {email}")
-                        if not args.test:
+                        if not args.test and rang + 1 < emails_du_lot:
                             logger.info(f"⏳ Pause de {INTER_EMAIL_DELAY} secondes avant le prochain email...")
                             time.sleep(INTER_EMAIL_DELAY)
                 except Exception as e:
