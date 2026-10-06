@@ -481,6 +481,72 @@ def VerifierDoublonsNomPrenom(*args):
             feuille.getCellByPosition(0, ligne).setPropertyValue("CellBackColor", 0xFF6464)  # Rouge clair
             feuille.getCellByPosition(1, ligne).setPropertyValue("CellBackColor", 0xFF6464)  # Rouge clair
 
+def VerifierColonneANCV(*args):
+    """
+    Vérifie la colonne AD (index 29, ANCV) de la feuille Liste_adherents :
+    - Signale toute cellule non vide sur une ligne sans adhérent (colonne A vide).
+    - Signale toute formule présente dans la colonne AD.
+    Colorie en rouge clair les cellules suspectes, blanc sinon.
+    """
+    doc = XSCRIPTCONTEXT.getDocument()
+    controller = doc.getCurrentController()
+    controller.suspend(True)  # Désactive les mises à jour visuelles
+
+    feuille = doc.Sheets.getByName("Liste_adherents")
+
+    INDEX_ANCV = 29   # Colonne AD (ANCV)
+    INDEX_NOM = 0      # Colonne A (Nom)
+    max_lignes = 1007  # Lignes 8 à 1008 (indices 7 à 1007)
+
+    # --- 1. Trouver la dernière ligne avec des données dans la colonne A ---
+    last_row = 7
+    while last_row < max_lignes and feuille.getCellByPosition(INDEX_NOM, last_row + 1).getString() != "":
+        last_row += 1
+
+    # --- 2. Parcourir la colonne AD jusqu'à la ligne 1010 incluse ---
+    problemes = []
+    for i in range(7, 1011):
+        cell_ancv = feuille.getCellByPosition(INDEX_ANCV, i)
+        valeur = cell_ancv.getString().strip()
+        type_formule = cell_ancv.getType() == 3  # com.sun.star.table.CellContentType.FORMULA
+
+        # Réinitialiser la couleur de fond
+        suspect = False
+
+        if valeur:
+            nom = feuille.getCellByPosition(INDEX_NOM, i).getString().strip()
+            if not nom:
+                suspect = True  # Valeur sur une ligne sans adhérent
+                problemes.append(f"Ligne {i + 1} : valeur '{valeur}' sans adhérent")
+
+        if type_formule:
+            suspect = True  # Formule détectée dans la colonne AD
+            if not any(f"Ligne {i + 1}" in p for p in problemes):
+                problemes.append(f"Ligne {i + 1} : formule presente en AD")
+
+        if suspect:
+            cell_ancv.setPropertyValue("CellBackColor", 0xffcccc)  # Rouge clair
+        else:
+            cell_ancv.setPropertyValue("CellBackColor", 0xFFFFFF)  # Blanc
+
+    controller.suspend(False)  # Réactive les mises à jour visuelles
+
+    # --- 3. Signaler les problèmes à l'utilisateur ---
+    if problemes:
+        message = "Problèmes détectés dans la colonne AD (ANCV) :\n\n"
+        message += "\n".join(problemes[:20])
+        if len(problemes) > 20:
+            message += f"\n... et {len(problemes) - 20} autres."
+        message += "\n\nVérifiez la colonne AD (formules déplacées suite à un tri/filtre ?)."
+    else:
+        message = "Aucun problème détecté dans la colonne AD (ANCV)."
+
+    # Afficher un message via une boîte de dialogue standard
+    win = doc.getCurrentController().getFrame().getContainerWindow()
+    toolkit = win.getToolkit()
+    box = toolkit.createMessageBox(win, "infobox", 1, "Vérification colonne AD (ANCV)", message)
+    box.execute()
+
 # ===== MACROS DE GROUPE =====
 def MiseEnForme_Groupes(*args):
     # copier_donnees_filtrees_vers_groupes()
