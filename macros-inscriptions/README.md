@@ -76,6 +76,7 @@ Exécutables depuis **Outils → Macros → Macros Python → Mes macros → mac
 | `AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents` | `Liste_adherents` | Mise en forme des colonnes de suivi : Montant club (Z), Reste dû (AA), **calcul du statut de paiement (Y : Oui/Non/Partiel/Remboursement)**, Famille (D, vert si ≥ 3 membres), statuts Ok/En cours/Annulé (P, Q, S, V, W, X), moyen de paiement (AB), nouveaux adhérents (BI=1 → colonnes A/B en vert). |
 | `AppliquerMiseEnForme_PlageMensuelle_ListeAdherents` | `Liste_adherents` | Colore en vert clair toute cellule renseignée dans la plage mensuelle (colonnes 29-58). |
 | `VerifierDoublonsNomPrenom` | `Liste_adherents` | Détecte les doublons Nom+Prénom et colore les lignes concernées en rouge. Réinitialise en blanc au préalable (un doublon corrigé redevient blanc). |
+| `VerifierColonneANCV` | `Liste_adherents` | Vérifie la colonne AD (ANCV) : signale toute valeur non vide sur une ligne sans adhérent et toute formule présente en AD (déplacée depuis BI suite à un tri/filtre). Colore en rouge clair les cellules suspectes et affiche un récapitulatif. |
 
 ### Convention des colonnes clés (feuille `Liste_adherents`)
 
@@ -92,6 +93,7 @@ Exécutables depuis **Outils → Macros → Macros Python → Mes macros → mac
 | Y | Paiement (calculé par la macro) |
 | Z / AA | Montant club / Reste dû (négatif = il reste à payer) |
 | AB | Moyen paiement |
+| AD | ANCV (doit rester vide sans adhérent — surveillée par `VerifierColonneANCV`) |
 | BI | Nouvel adhérent (1) |
 
 ### Notes techniques
