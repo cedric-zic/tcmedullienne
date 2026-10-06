@@ -49,7 +49,7 @@ except ImportError:
         "Et ajoutez 'secrets_local.py' dans .gitignore."
     )
 
-SOURCE_FILE = r"P:/2026-2027/Adhérents/gestion_adherents_2026-2027.ods"
+SOURCE_FILE = r"P:/2026-2027/Adhérents/gestion_adherents_2026-2027_NEW.ods"
 DOSSIER_TRAVAIL = os.path.dirname(SOURCE_FILE)
 DOSSIER_OLD_DOCS = os.path.join(DOSSIER_TRAVAIL, "OLD_Docs")
 SAUVEGARDES_CONSERVEES = 5

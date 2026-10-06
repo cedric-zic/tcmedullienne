@@ -46,7 +46,7 @@ SOUS_DOSSIER_EXPORT = "Extraction_CSV_pour migration"
 
 # Noms des fichiers (relatifs au dossier de traitement).
 # Inscription (fichier gestion des adherents).
-FICHIER_INSCRIPTIONS = "gestion_adherents_2026-2027.ods"
+FICHIER_INSCRIPTIONS = "gestion_adherents_2026-2027_NEW.ods"
 # LiveXp (export clients de l'application mobile).
 FICHIER_EXPORT_APP   = "Export_clients_13092026145627.csv"
 
