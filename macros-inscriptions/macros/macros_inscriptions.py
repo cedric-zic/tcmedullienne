@@ -560,6 +560,7 @@ def MiseEnForme_ListeAdherents(*args):
     AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents()
     AppliquerMiseEnForme_PlageMensuelle_ListeAdherents()
     MiseEnFormeAdherentsEnregistresNonPresents()
+    VerifierColonneANCV()
 
 def MiseAJourComplete(*args):
     copier_donnees_filtrees_vers_groupes()
