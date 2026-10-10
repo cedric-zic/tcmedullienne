@@ -87,7 +87,7 @@ Exécutables depuis **Outils → Macros → Macros Python → Mes macros → mac
 | P | Fiche validée |
 | Q | Pré-inscription ADOC |
 | S | Fiche numérisée |
-| V | Inscription validée ADOC |
+| V | Inscription validée |
 | W | Licence générée |
 | X | Demande reçu |
 | Y | Paiement (calculé par la macro) |

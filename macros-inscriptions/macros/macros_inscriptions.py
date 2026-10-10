@@ -263,7 +263,7 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
     INDEX_FICHE_VALIDEE = 15 # Colonne P (Fiche validée)
     INDEX_PREINSCRIPTION = 16 # Colonne Q (Pré-inscription ADOC)
     INDEX_FICHE_NUMERISEE = 18 # Colonne S (Fiche numérisée)
-    INDEX_INSCRIPTION_VALIDEE = 21 # Colonne V (Inscription validée ADOC)
+    INDEX_INSCRIPTION_VALIDEE = 21 # Colonne V (Inscription validée)
     INDEX_LICENCE_GENEREE = 22 # Colonne W (Licence générée ADOC)
     INDEX_DEMANDE_RECU = 23 # Colonne X (Demande reçu)
     INDEX_PAIEMENT = 24 # Colonne Y (Paiement)

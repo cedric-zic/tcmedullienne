@@ -306,14 +306,6 @@ def est_transposee_ezodf(sheet, ligne_en_tetes=7):
         return False
 
 
-def get_inscription_validee(adherent):
-    """Lit la colonne "Inscription validée" (col. V) quel que soit le suffixe
-    exact de son en-tête (ex. "Inscription validée ADOC")."""
-    for cle, valeur in adherent.items():
-        if str(cle).strip().lower().startswith("inscription valid"):
-            return str(valeur or "").strip()
-    return ""
-
 def is_after_15th_of_month():
     """Vérifie si la date du jour est le 15 du mois ou après.
 
@@ -914,11 +906,9 @@ def main():
         required_columns = [
             "NOM", "PRENOM", "Email", "FORMULE ADOC", "Prix Club",
             "Réduc", "Prix Profs", "Prix Total hors remise", "Montant club",
-            "Reste dû", "Moyen paiement", "Fiche numérisée", "Paiement", "Date envoie", "Fiche Validée"
+            "Reste dû", "Moyen paiement", "Fiche numérisée", "Paiement", "Date envoie", "Fiche Validée",
+            "Inscription validée"
         ]
-        # La colonne "Inscription validée" (col. V) peut porter un suffixe (ex. "Inscription validée ADOC")
-        if not any(str(h).strip().lower().startswith("inscription valid") for h in headers):
-            raise ValueError("Colonnes manquantes : ['Inscription validée']")
         missing_columns = [col for col in required_columns if col not in headers]
         if missing_columns:
             raise ValueError(f"Colonnes manquantes : {missing_columns}")
@@ -981,7 +971,7 @@ def main():
             # Cas annulation après paiement : "Inscription validée" (col. V) passée à "Annulé"
             # alors que la fiche reste validée : le statut de paiement est passé à
             # "Remboursement" par la macro, le montant est calculé manuellement au prorata.
-            inscription_validée = get_inscription_validee(adherent)
+            inscription_validée = str(adherent.get("Inscription validée", "") or "").strip()
             paiement = str(adherent.get("Paiement", "") or "").strip()
             if (fiche_validee != "Annulé" and inscription_validée == "Annulé"
                     and paiement == "Remboursement" and email_envoye != "Annulé"):
@@ -1053,7 +1043,7 @@ def main():
             fiche_validee = adherent.get("Fiche Validée", "")
             if fiche_validee == "Annulé":
                 continue  # Exclure les annulés
-            if fiche_validee != "Annulé" and get_inscription_validee(adherent) == "Annulé":
+            if fiche_validee != "Annulé" and str(adherent.get("Inscription validée", "") or "").strip() == "Annulé":
                 continue  # Exclure les annulations après paiement (traitées à l'étape 2)
             
             try:
