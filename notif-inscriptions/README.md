@@ -21,6 +21,7 @@ vérifier si des virements sont passés avant de relancer.
 
 - **Professeurs** — application d'un tampon « Professeur » sur la fiche PDF.
 - **Annulations** — application d'un tampon « Annulé » + email d'annulation.
+- **Annulation après paiement (remboursement)** — l'adhérent annule quelques semaines après le début des cours. Il suffit de passer la colonne « Inscription validée » (col. V) à « Annulé » : la macro passe alors « Paiement » (col. Y) à « Remboursement » (montant à calculer manuellement au prorata), et le script envoie l'email d'annulation avec la mention de remboursement. Les autres statuts (Fiche validée P, Pré-inscription Q, Licence générée W) ne sont pas modifiés ; la ligne reste exclue du flux des adhérents normaux.
 
 Avant d'insérer un tampon (Payé, Professeur ou Annulé), le script vérifie s'il est déjà
 présent sur la fiche PDF (comparaison d'image après rotation/redimensionnement

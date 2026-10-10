@@ -306,6 +306,14 @@ def est_transposee_ezodf(sheet, ligne_en_tetes=7):
         return False
 
 
+def get_inscription_validee(adherent):
+    """Lit la colonne "Inscription validée" (col. V) quel que soit le suffixe
+    exact de son en-tête (ex. "Inscription validée ADOC")."""
+    for cle, valeur in adherent.items():
+        if str(cle).strip().lower().startswith("inscription valid"):
+            return str(valeur or "").strip()
+    return ""
+
 def is_after_15th_of_month():
     """Vérifie si la date du jour est le 15 du mois ou après.
 
@@ -343,8 +351,16 @@ def get_logo_base64():
         return ""  # Retourne une chaîne vide si le logo est introuvable
 
 # --- FONCTION POUR GÉNÉRER LE CORPS DE L'EMAIL D'ANNULATION ---
-def generate_html_annulation_body(adherent):
+def generate_html_annulation_body(adherent, remboursement=False):
     formule = adherent.get("FORMULE ADOC", "Non spécifiée")
+
+    message_remboursement = ""
+    if remboursement:
+        message_remboursement = """
+                    <p style="color: #3498db; font-weight: bold; font-size: 16px; margin:15px 0 0 0;">
+                        ℹ️ Votre inscription ayant déjà été réglée, un remboursement va être effectué. Nous vous recontacterons pour le remboursement.
+                    </p>
+        """
 
     # ✅ Utilisation du logo en base64
     logo_data_uri = get_logo_base64()  # Appel de la fonction
@@ -380,6 +396,7 @@ def generate_html_annulation_body(adherent):
                     <p style="margin:0 0 10px 0;">Nous vous confirmons que l'annulation de votre inscription pour la saison 2026/2027 a bien été prise en compte.</p>
                     <h2 style="color: #2c3e50; border-bottom: 2px solid #e74c3c; padding-bottom: 5px; margin: 20px 0 10px 0; font-size:16px;">📋 Détails de l'annulation</h2>
                     <p style="margin:0 0 10px 0;"><strong>Formule initialement souscrite :</strong> {formule}</p>
+                    {message_remboursement}
                     <p style="margin:15px 0 0 0;">N'hésitez pas à nous contacter pour toute question.</p>
                 </td>
             </tr>
@@ -530,8 +547,13 @@ def generate_html_email_body(adherent, attachment_found=False):
     """
 
 # --- FONCTION POUR METTRE À JOUR LE FICHIER calc POUR LES ANNULATIONS ---
-def update_calc_annulation_status(ods_file, row_index, is_transposed=False, date_envoi=None, test_mode=False):
-    """Met à jour les champs liés à l'annulation dans le fichier ODS."""
+def update_calc_annulation_status(ods_file, row_index, is_transposed=False, date_envoi=None, test_mode=False, paiement="Annulé", statuts_annulation=True):
+    """Met à jour les champs liés à l'annulation dans le fichier ODS.
+
+    statuts_annulation=False : annulation après paiement (col. V "Annulé",
+    paiement "Remboursement") — on ne touche pas aux autres statuts (P, Q, W),
+    seul le suivi d'envoi est mis à jour.
+    """
     if test_mode:  # ✅ Ajout de cette ligne
         return
 
@@ -550,22 +572,24 @@ def update_calc_annulation_status(ods_file, row_index, is_transposed=False, date
         
         if is_transposed:
             # Structure transposée : adhérents en COLONNES
-            ws[row_index + DATA_START_ROW - 1, fiche_validee_col] = Cell("Annulé")
-            ws[row_index + DATA_START_ROW - 1, pre_inscription_col] = Cell("Annulé")
+            if statuts_annulation:
+                ws[row_index + DATA_START_ROW - 1, fiche_validee_col] = Cell("Annulé")
+                ws[row_index + DATA_START_ROW - 1, pre_inscription_col] = Cell("Annulé")
+                ws[row_index + DATA_START_ROW - 1, inscription_validee_col] = Cell("Annulé")
+                ws[row_index + DATA_START_ROW - 1, licence_generee_col] = Cell("Annulé")
             ws[row_index + DATA_START_ROW - 1, email_envoye_col] = Cell("Annulé")
-            ws[row_index + DATA_START_ROW - 1, inscription_validee_col] = Cell("Annulé")
-            ws[row_index + DATA_START_ROW - 1, licence_generee_col] = Cell("Annulé")
-            ws[row_index + DATA_START_ROW - 1, paiement_col] = Cell("Annulé")
+            ws[row_index + DATA_START_ROW - 1, paiement_col] = Cell(paiement)
             if date_envoi:
                 ws[row_index + DATA_START_ROW - 1, date_envoi_col] = Cell(date_envoi)
         else:
             # Structure normale : adhérents en LIGNES
-            ws[fiche_validee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
-            ws[pre_inscription_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
+            if statuts_annulation:
+                ws[fiche_validee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
+                ws[pre_inscription_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
+                ws[inscription_validee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
+                ws[licence_generee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
             ws[email_envoye_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
-            ws[inscription_validee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
-            ws[licence_generee_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
-            ws[paiement_col, row_index + DATA_START_ROW - 1] = Cell("Annulé")
+            ws[paiement_col, row_index + DATA_START_ROW - 1] = Cell(paiement)
             if date_envoi:
                 ws[date_envoi_col, row_index + DATA_START_ROW - 1] = Cell(date_envoi)
         
@@ -892,6 +916,9 @@ def main():
             "Réduc", "Prix Profs", "Prix Total hors remise", "Montant club",
             "Reste dû", "Moyen paiement", "Fiche numérisée", "Paiement", "Date envoie", "Fiche Validée"
         ]
+        # La colonne "Inscription validée" (col. V) peut porter un suffixe (ex. "Inscription validée ADOC")
+        if not any(str(h).strip().lower().startswith("inscription valid") for h in headers):
+            raise ValueError("Colonnes manquantes : ['Inscription validée']")
         missing_columns = [col for col in required_columns if col not in headers]
         if missing_columns:
             raise ValueError(f"Colonnes manquantes : {missing_columns}")
@@ -946,7 +973,18 @@ def main():
             fiche_validee = adherent.get("Fiche Validée", "")
             email_envoye = adherent.get("Email envoyé", "")
             
+            # Cas standard : fiche validée passée à "Annulé"
             if fiche_validee == "Annulé" and email_envoye != "Annulé":
+                adherents_annules.append((row_index, adherent))
+                continue
+            
+            # Cas annulation après paiement : "Inscription validée" (col. V) passée à "Annulé"
+            # alors que la fiche reste validée : le statut de paiement est passé à
+            # "Remboursement" par la macro, le montant est calculé manuellement au prorata.
+            inscription_validée = get_inscription_validee(adherent)
+            paiement = str(adherent.get("Paiement", "") or "").strip()
+            if (fiche_validee != "Annulé" and inscription_validée == "Annulé"
+                    and paiement == "Remboursement" and email_envoye != "Annulé"):
                 adherents_annules.append((row_index, adherent))
         
         for row_index, adherent in adherents_annules:
@@ -979,7 +1017,11 @@ def main():
                 
                 # Envoyer l'email d'annulation
                 subject = SUBJECT.format(prenom=prenom, nom=nom) + " - Annulé"
-                html_body = generate_html_annulation_body(adherent)
+                paiement = str(adherent.get("Paiement", "") or "").strip()
+                remboursement = paiement == "Remboursement"
+                if remboursement:
+                    logger.info(f"💰 Annulation avec remboursement à prévoir (montant calculé manuellement au prorata) pour {prenom} {nom}")
+                html_body = generate_html_annulation_body(adherent, remboursement=remboursement)
                 
                 if send_email(
                     email, subject, html_body, 
@@ -987,7 +1029,12 @@ def main():
                     logo_path=LOGO_PATH, adherent=adherent
                 ):
                     today = datetime.now().strftime("%d/%m/%Y")
-                    update_calc_annulation_status(SOURCE_FILE, row_index, is_transposed, today, test_mode=args.test)
+                    update_calc_annulation_status(
+                        SOURCE_FILE, row_index, is_transposed, today,
+                        test_mode=args.test,
+                        paiement="Remboursement" if remboursement else "Annulé",
+                        statuts_annulation=not remboursement
+                    )
                     logger.info(f"✅ Email d'annulation {'simulé' if args.test else 'envoyé'} à {email}")
                     if not args.test:
                         time.sleep(INTER_EMAIL_DELAY)
@@ -1006,6 +1053,8 @@ def main():
             fiche_validee = adherent.get("Fiche Validée", "")
             if fiche_validee == "Annulé":
                 continue  # Exclure les annulés
+            if fiche_validee != "Annulé" and get_inscription_validee(adherent) == "Annulé":
+                continue  # Exclure les annulations après paiement (traitées à l'étape 2)
             
             try:
                 if is_transposed:

@@ -335,6 +335,12 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
                     else:
                         statut_paiement = "Partiel"  # Paiement partiel (ex: 175 / -25,00 €)
 
+                # Adhérent ayant annulé son inscription après avoir payé :
+                # un remboursement est à prévoir (montant calculé manuellement au prorata).
+                statut_inscription = feuille.getCellByPosition(INDEX_INSCRIPTION_VALIDEE, i).getString().strip()
+                if statut_inscription == "Annulé" and statut_paiement in ("Oui", "Partiel", "Remboursement"):
+                    statut_paiement = "Remboursement"
+
                 # Écrire le statut dans la colonne Y
                 cell_paiement.setString(statut_paiement)
 
