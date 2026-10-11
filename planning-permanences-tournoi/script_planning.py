@@ -265,14 +265,15 @@ GAUCHE = Alignment(horizontal="left", vertical="center", indent=1)
 
 def lignes_scenario(avec_site2, nslots):
     """Lignes d'un bloc : liste (slot, site, libellé de ligne).
-    Site 1 : une ligne par créneau horaire. Site 2 : lignes ajoutées
-    EN DESSOUS (créneaux du soir uniquement), pour ne pas élargir le
-    planning vers la droite.
+    Site 1 : une ligne par créneau horaire. Site 2 : ligne insérée
+    JUSTE EN DESSOUS du créneau horaire correspondant (C site 2 sous C,
+    D site 2 sous D), pour ne pas élargir le planning vers la droite.
     """
-    lignes = [(s, 1, LABELS_SLOTS[s]) for s in range(nslots)]
-    if avec_site2:
-        lignes += [(s, 2, f"{LABELS_SLOTS[s]} (site 2)")
-                  for s in SLOTS_SITE2 if s < nslots]
+    lignes = []
+    for s in range(nslots):
+        lignes.append((s, 1, LABELS_SLOTS[s]))
+        if avec_site2 and s in SLOTS_SITE2:
+            lignes.append((s, 2, f"{LABELS_SLOTS[s]} (site 2)"))
     return lignes
 
 
