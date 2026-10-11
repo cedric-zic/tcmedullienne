@@ -14,8 +14,14 @@ Ce script :
        - minimise le nombre de créneaux non couverts,
        - priorise les personnes ayant proposé le moins de disponibilités,
        - répartit la charge au maximum entre les personnes.
-  3. ajoute (ou remplace) une feuille "PLANNING" dans le même classeur,
-     avec une présentation en 3 blocs de 6 jours comme la feuille d'origine.
+  3. écrit DEUX feuilles de planning dans le même classeur :
+       - "planning 1 site"  : site principal (A 9-13, B 13-17, C 17-21, D 21-fin)
+       - "planning 2 sites" : site principal + second site sur les créneaux
+         du soir uniquement (C 17-21 et D 21-fin).
+     Les deux plannings sont résolus indépendamment : une personne peut donc
+     apparaître sur des créneaux différents dans chaque feuille.
+  4. présentation en 3 blocs de 6 jours + le bloc finale, comme la feuille
+     d'origine.
 
 Dépendances : openpyxl, scipy (pip install openpyxl scipy)
 """
@@ -32,7 +38,8 @@ from scipy.optimize import Bounds, LinearConstraint, milp
 # ----------------------------------------------------------------- CONFIG ---
 FICHIER = r"P:/2026-2027/Bureau/Championnats - Tournois/TOURNOI AUTOMNE PERMANENCES_fusion.xlsx"
 FEUILLE_DISPO = "Feuil1"
-FEUILLE_PLANNING = "PLANNING"
+FEUILLE_1_SITE = "planning 1 site"
+FEUILLE_2_SITES = "planning 2 sites"
 
 SLOTS = ["9-13", "13-17", "17-21", "21-fin"]
 LABELS_SLOTS = ["A 9h-13h", "B 13h-17h", "C 17h-21h", "D 21h-fin"]
@@ -44,12 +51,15 @@ MAX_PAR_SEMAINE = 4  # permanences max par semaine (bloc de 6 jours + finale)
 JOUR_RE = re.compile(r"^\S.*\d{1,2}/\d{1,2}")  # ex. "Sam 17/10"
 SLOT_VALS = {"9-13", "13-17", "17-21", "21-fin"}
 
+# site 2 : créneaux du soir uniquement (indices 2=C et 3=D)
+SLOTS_SITE2 = (2, 3)
+
 
 # ------------------------------------------------------------ LECTURE XLSX ---
 def lire_dispos(fichier, feuille):
     """Retourne (jours, dispos).
-    jours : liste de dict {label, nslots}
-    dispos : dict (nom, jour, slot) -> valeur ('O', 'N', '> 18h', ...)
+    jours  : liste de dict {label, nslots}
+    dispos : dict nom -> {(jour, slot) -> valeur}
     """
     wb = load_workbook(fichier, data_only=True)
     ws = wb[feuille]
@@ -58,7 +68,6 @@ def lire_dispos(fichier, feuille):
         for r in ws.iter_rows(values_only=True)
     ]
 
-    # lignes d'en-tête de jours : contiennent une date mais pas de libellé "9-13"
     day_rows = [
         i for i, r in enumerate(rows)
         if any(JOUR_RE.match(c) for c in r if c)
@@ -66,21 +75,18 @@ def lire_dispos(fichier, feuille):
     ]
 
     jours = []
-    dispos = defaultdict(dict)  # nom -> {(jour, slot): valeur}
+    dispos = defaultdict(dict)
     day_index = -1
     for hr in day_rows:
         r = rows[hr]
         nom_row = rows[hr + 1]
         labels = [(j, c) for j, c in enumerate(r) if JOUR_RE.match(c)]
-        block = []  # (idx, colonne_premier_slot, nb_slots, label, colonnes)
+        block = []
         for k, (j, c) in enumerate(labels):
             end = labels[k + 1][0] if k + 1 < len(labels) else len(r)
             day_index += 1
             if "FINALE" in c.upper():
-                # cas particulier de la dernière feuille : créneaux A et B
-                # positionnés dans 2 sous-colonnaires espacés (j et j+4)
-                cols = [j, j + 4]
-                nsl = 2
+                nsl, cols = 2, [j, j + 4]
             else:
                 span = nom_row[j:end]
                 nsl = max(len([x for x in span if x in SLOT_VALS]), 1)
@@ -109,69 +115,80 @@ def est_dispo(valeur):
 
 
 # ---------------------------------------------------------- OPTIMISATION ----
-def resoudre(jours, dispos):
-    """Affectation en 2 phases :
-    phase 1 : minimiser les créneaux non couverts ;
-    phase 2 : à couverture égale, équilibrer la charge (minimiser le max).
+def creneaux_scenario(jours, avec_site2):
+    """Liste des créneaux du scénario : tuples (jour, slot, site).
+    site = 1 (principal) ou 2 (second site, soirées uniquement).
+    """
+    out = []
+    for d, j in enumerate(jours):
+        for s in range(j["nslots"]):
+            out.append((d, s, 1))
+            if avec_site2 and s in SLOTS_SITE2:
+                out.append((d, s, 2))
+    return out
+
+
+def resoudre(jours, dispos, avec_site2):
+    """Résout l'affectation pour un scénario (site 2 inclus ou non).
     Retourne (affectations, non_couverts, charge).
     """
+    creneaux = creneaux_scenario(jours, avec_site2)
     nD = len(jours)
-    # personnes ayant répondu (au moins un O / N / >xx)
+
     noms = sorted(
         n for n, cells in dispos.items()
         if any(v in ("O", "N") or v.startswith(">") for v in cells.values())
     )
-    # variables d'affectation
+    # variables d'affectation : une personne peut tenir le même créneau horaire
+    # sur le site 1 ou le site 2 (sa dispo horaire s'applique aux deux)
     idx = {}
     for n in noms:
-        for (d, s), v in dispos.get(n, {}).items():
+        for (d, s, site) in creneaux:
+            v = dispos.get(n, {}).get((d, s), "")
             if d < nD and s < jours[d]["nslots"] and est_dispo(v):
-                idx[(n, d, s)] = len(idx)
+                idx[(n, d, s, site)] = len(idx)
     nA = len(idx)
-    # variables de non-couverture y[d,s]
-    yidx = {}
-    for d in range(nD):
-        for s in range(jours[d]["nslots"]):
-            yidx[(d, s)] = nA + len(yidx)
-    nY = len(yidx)
-    nTot = nA + nY + 1  # +1 : variable de charge max (phase 2)
+
+    yidx = {c: nA + i for i, c in enumerate(creneaux)}
+    nTot = nA + len(yidx) + 1
     zmax = nTot - 1
 
-    # couverture par créneau
     cov = defaultdict(list)
-    for (n, d, s) in idx:
-        cov[(d, s)].append(n)
+    for (n, d, s, site), vi in idx.items():
+        cov[(d, s, site)].append((n, vi))
 
     A, lb, ub = [], [], []
-    # 1 créneau = au moins 1 personne (ou variable d'écart)
-    for key, yi in yidx.items():
+    # 1 créneau (site donné) = au moins 1 personne (ou variable d'écart)
+    for (d, s, site), yi in yidx.items():
         row = np.zeros(nTot)
-        for n in cov.get(key, []):
-            row[idx[(n, *key)]] = 1
+        for n, vi in cov.get((d, s, site), []):
+            row[vi] = 1
         row[yi] = 1
         A.append(row); lb.append(1); ub.append(np.inf)
-    # 1 seul créneau par personne et par jour
+    # 1 seul créneau par personne et par jour (tous sites confondus)
     perday = defaultdict(list)
-    for (n, d, s), vi in idx.items():
+    for (n, d, s, site), vi in idx.items():
         perday[(n, d)].append(vi)
     for vs in perday.values():
         row = np.zeros(nTot)
         for v in vs:
             row[v] = 1
         A.append(row); lb.append(-np.inf); ub.append(1)
-    # jamais 2 jours consécutifs pour une même personne
+    # jamais 2 jours consécutifs pour une même personne (tous sites confondus)
     for n in noms:
         for d in range(nD - 1):
-            v1 = [idx[(n, d, s)] for s in range(jours[d]["nslots"]) if (n, d, s) in idx]
-            v2 = [idx[(n, d + 1, s)] for s in range(jours[d + 1]["nslots"]) if (n, d + 1, s) in idx]
+            v1 = [vi for (nn, dd, s, site), vi in idx.items()
+                  if nn == n and dd == d]
+            v2 = [vi for (nn, dd, s, site), vi in idx.items()
+                  if nn == n and dd == d + 1]
             if v1 and v2:
                 row = np.zeros(nTot)
                 for v in v1 + v2:
                     row[v] = 1
                 A.append(row); lb.append(-np.inf); ub.append(1)
-    # charge d'une personne <= max global (phase 2)
+    # charge <= max global (équilibrage, phase suivante)
     perpers = defaultdict(list)
-    for (n, d, s), vi in idx.items():
+    for (n, d, s, site), vi in idx.items():
         perpers[n].append(vi)
     for vs in perpers.values():
         row = np.zeros(nTot)
@@ -186,16 +203,15 @@ def resoudre(jours, dispos):
             row[v] = 1
         A.append(row); lb.append(-np.inf); ub.append(MAX_TOTAL)
     # plafond hebdomadaire : au plus MAX_PAR_SEMAINE par bloc de 6 jours
-    # (les blocs correspondent aux semaines affichées : jours 0-5, 6-11,
-    # 12-17, puis 18-21 pour la semaine de la finale)
     persem = defaultdict(list)
-    for (n, d, s), vi in idx.items():
+    for (n, d, s, site), vi in idx.items():
         persem[(n, min(d // 6, 3))].append(vi)
     for vs in persem.values():
         row = np.zeros(nTot)
         for v in vs:
             row[v] = 1
         A.append(row); lb.append(-np.inf); ub.append(MAX_PAR_SEMAINE)
+
     cons = LinearConstraint(np.array(A), lb, ub)
     integrality = np.ones(nTot)
     bounds = Bounds(np.zeros(nTot), np.ones(nTot))
@@ -205,33 +221,32 @@ def resoudre(jours, dispos):
     # objectif, par ordre de priorité décroissante :
     #   1. minimiser les créneaux non couverts (poids écrasant),
     #   2. PRIO AUX PETITES DISPOS : affecter une personne coûte
-    #      proportionnellement à son nombre total de disponibilités.
-    #      À nombre de créneaux couverts égal, le solveur privilégie ainsi
-    #      toujours les personnes qui ont proposé le moins de créneaux
-    #      (celle qui n'en propose que 3 obtient ses 3 créneaux, même si
-    #      5 personnes très disponibles sont aussi sur ces créneaux),
-    #   3. équilibrer la charge (poids très faible sur la charge max).
+    #      proportionnellement à son nombre total de disponibilités,
+    #   3. équilibrer la charge (poids très faible).
     nb_dispo = defaultdict(int)
-    for (n, d, s) in idx:
-        nb_dispo[n] += 1
+    for (n, d, s), v in [(k, v) for k, v in
+                         ((kk, dispos.get(kk[0], {}).get((kk[1], kk[2]), ""))
+                          for kk in [(n, d, s) for (n, d, s, site) in idx])]:
+        if est_dispo(v):
+            nb_dispo[n] += 1
 
     c = np.zeros(nTot)
     for yi in yidx.values():
         c[yi] = 1000000.0
-    for (n, d, s), vi in idx.items():
-        c[vi] = float(nb_dispo[n])      # moins de dispos -> moins cher -> prioritaire
-    c[zmax] = 0.001                      # équilibrage, très en dessous de la priorité
+    for (n, d, s, site), vi in idx.items():
+        c[vi] = float(nb_dispo[n])
+    c[zmax] = 0.001
 
     res = milp(c=c, constraints=cons, integrality=integrality, bounds=bounds)
     if res.status != 0:
         raise RuntimeError(f"Solveur en échec : {res.message}")
 
     sol = np.round(res.x).astype(int)
-    affect = defaultdict(dict)             # (jour, slot) -> [noms]
+    affect = defaultdict(list)              # (jour, slot, site) -> [noms]
     charge = defaultdict(int)
-    for (n, d, s), vi in idx.items():
+    for (n, d, s, site), vi in idx.items():
         if sol[vi] == 1:
-            affect[(d, s)][n] = True
+            affect[(d, s, site)].append(n)
             charge[n] += 1
     non_couverts = [k for k, yi in yidx.items() if sol[yi] == 1]
     return affect, non_couverts, dict(charge), noms
@@ -241,16 +256,28 @@ def resoudre(jours, dispos):
 ENTETE_FILL = PatternFill("solid", fgColor="1F4E78")
 ENTETE_FONT = Font(bold=True, color="FFFFFF", size=11)
 JOUR_FILL = PatternFill("solid", fgColor="D9E1F2")
+SITE2_FILL = PatternFill("solid", fgColor="FFF2CC")
 TROU_FONT = Font(bold=True, color="C00000")
-PARTIEL_FONT = Font(italic=True)
 BORD = Border(*[Side(style="thin")] * 4)
 CENTRE = Alignment(horizontal="center", vertical="center")
+GAUCHE = Alignment(horizontal="left", vertical="center", indent=1)
 
 
-def ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos):
-    if FEUILLE_PLANNING in wb.sheetnames:
-        del wb[FEUILLE_PLANNING]
-    ws = wb.create_sheet(FEUILLE_PLANNING)
+def colonnes_jour(jour, avec_site2):
+    """Colonnes d'une journée pour le scénario : liste (slot, site, libellé)."""
+    cols = []
+    for s in range(jour["nslots"]):
+        cols.append((s, 1, LABELS_SLOTS[s]))
+        if avec_site2 and s in SLOTS_SITE2:
+            cols.append((s, 2, LABELS_SLOTS[s]))
+    return cols
+
+
+def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
+                    dispos, avec_site2):
+    if nom_feuille in wb.sheetnames:
+        del wb[nom_feuille]
+    ws = wb.create_sheet(nom_feuille)
     ws.sheet_view.showGridLines = False
 
     # découpage en blocs de 6 jours (comme la feuille d'origine) + finale
@@ -267,42 +294,70 @@ def ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos):
         titre = f"Semaine {bi}" + (" (FINALE)" if jours[bloc[0]]["nslots"] < 4 else "")
         ws.cell(row=row, column=1, value=titre).font = Font(bold=True, size=12)
         row += 1
-        # en-tête : label du jour sur la 1re colonne de chaque jour
-        for c, di in enumerate(bloc):
-            col = 2 + c * 4
-            cell = ws.cell(row=row, column=col, value=jours[di]["label"])
-            cell.fill, cell.font, cell.alignment, cell.border = (
-                JOUR_FILL, Font(bold=True), CENTRE, BORD)
-            for k in range(1, 4):
-                ws.cell(row=row, column=col + k).border = BORD
-                ws.cell(row=row, column=col + k).fill = JOUR_FILL
+
+        # en-tête : libellés de créneaux, 1re colonne = libellé de ligne
+        entete = []
+        for di in bloc:
+            entete.append(("jour", di))
+            for (s, site, lab) in colonnes_jour(jours[di], avec_site2):
+                entete.append(("slot", di, s, site, lab))
+        largeurs = [len([e for e in entete if e[0] == "jour"])]  # 1 col libellé
+
+        # ligne 1 : labels des jours (alignés à gauche)
+        col = 2
+        jour_span = {}
+        for e in entete:
+            if e[0] == "jour":
+                cell = ws.cell(row=row, column=col, value=jours[e[1]]["label"])
+                cell.fill, cell.font, cell.border = (JOUR_FILL, Font(bold=True), BORD)
+                cell.alignment = GAUCHE
+                jour_span[e[1]] = col
+            col += 1
+        # remplissage à droite du label pour la bande du jour
+        for di, c0 in jour_span.items():
+            ncolj = len(colonnes_jour(jours[di], avec_site2))
+            for k in range(ncolj):
+                cc = ws.cell(row=row, column=c0 + 1 + k)
+                cc.fill, cc.border = JOUR_FILL, BORD
         row += 1
-        # en-tête : libellés de créneau
-        for c, di in enumerate(bloc):
-            col = 2 + c * 4
-            for s in range(jours[di]["nslots"]):
-                cell = ws.cell(row=row, column=col + s, value=LABELS_SLOTS[s])
+
+        # ligne 2 : libellés de créneaux (+ mention site 2)
+        col = 2
+        for e in entete:
+            if e[0] == "slot":
+                _, di, s, site, lab = e
+                cell = ws.cell(row=row, column=col, value=lab)
                 cell.fill, cell.font, cell.alignment, cell.border = (
                     ENTETE_FILL, ENTETE_FONT, CENTRE, BORD)
+            col += 1
         row += 1
-        # affectations : une ligne par créneau
+
+        # lignes d'affectation : une ligne par créneau horaire (A à D)
+        # les créneaux du site 2 (même horaire) sont sur la même ligne
         for s in range(4):
             ws.cell(row=row, column=1, value=LABELS_SLOTS[s]).font = Font(bold=True)
-            for c, di in enumerate(bloc):
-                if s >= jours[di]["nslots"]:
-                    continue
-                col = 2 + c * 4 + s
-                if (di, s) in affect:
-                    noms_slot = list(affect[(di, s)])
-                    txts = []
-                    for n in noms_slot:
-                        v = dispos.get(n, {}).get((di, s), "O")
-                        txts.append(f"{n} ({v})" if v.startswith(">") else n)
-                    cell = ws.cell(row=row, column=col, value="\n".join(txts))
-                    cell.alignment, cell.border = CENTRE, BORD
-                else:
-                    cell = ws.cell(row=row, column=col, value="!! À POURVOIR")
-                    cell.font, cell.alignment, cell.border = TROU_FONT, CENTRE, BORD
+            for di in bloc:
+                base = jour_span[di]
+                ncolj = len(colonnes_jour(jours[di], avec_site2))
+                jcols = colonnes_jour(jours[di], avec_site2)
+                for k, (ss, site, lab) in enumerate(jcols):
+                    if ss != s:
+                        continue
+                    cell_col = base + 1 + k
+                    if (di, ss, site) in affect:
+                        txts = []
+                        for n in affect[(di, ss, site)]:
+                            v = dispos.get(n, {}).get((di, ss), "O")
+                            txts.append(f"{n} ({v})" if v.startswith(">") else n)
+                        cell = ws.cell(row=row, column=cell_col, value="\n".join(txts))
+                        cell.alignment, cell.border = CENTRE, BORD
+                        if site == 2:
+                            cell.fill = SITE2_FILL
+                    elif s < jours[di]["nslots"]:
+                        cell = ws.cell(row=row, column=cell_col, value="!! À POURVOIR")
+                        cell.font, cell.alignment, cell.border = TROU_FONT, CENTRE, BORD
+                        if site == 2:
+                            cell.fill = SITE2_FILL
             row += 1
         row += 1  # ligne vide entre les blocs
 
@@ -323,9 +378,8 @@ def ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos):
         c2.alignment = CENTRE
         c2.border = BORD
     row += 1
-    # max de permanences par semaine (mêmes semaines que la limite du solveur)
     sem_par_pers = defaultdict(lambda: defaultdict(int))
-    for (d, s), noms_slot in affect.items():
+    for (d, s, site), noms_slot in affect.items():
         for n in noms_slot:
             sem_par_pers[n][min(d // 6, 3)] += 1
     for n in sorted(charge, key=lambda x: (-charge[x], x)):
@@ -343,11 +397,14 @@ def ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos):
     ws.cell(row=row, column=1, value="Créneaux non couverts :").font = Font(bold=True)
     ws.cell(row=row, column=2, value=len(non_couverts)).font = TROU_FONT
     ws.cell(row=row + 1, column=1,
-            value=", ".join(f"{jours[d]['label']} {LABELS_SLOTS[s]}" for d, s in non_couverts))
+            value=", ".join(
+                f"{jours[d]['label']} {LABELS_SLOTS[s]}" + (f" [site {site}]" if site == 2 else "")
+                for d, s, site in non_couverts))
 
     # largeurs de colonnes
     ws.column_dimensions["A"].width = 16
-    for c in range(2, 2 + 6 * 4):
+    ncol_max = 2 + 6 * (8 if avec_site2 else 4)
+    for c in range(2, ncol_max):
         ws.column_dimensions[get_column_letter(c)].width = 13
 
 
@@ -355,19 +412,28 @@ def ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos):
 def main():
     jours, dispos = lire_dispos(FICHIER, FEUILLE_DISPO)
     total = sum(j["nslots"] for j in jours)
-    print(f"{len(jours)} jours, {total} créneaux à couvrir.")
+    print(f"{len(jours)} jours, {total} créneaux (1 site), "
+          f"{total + 2 * sum(1 for j in jours if j['nslots'] == 4)} (2 sites).")
 
-    affect, non_couverts, charge, noms = resoudre(jours, dispos)
-    print(f"Personnes mobilisées : {len(charge)}")
-    print(f"Créneaux couverts    : {total - len(non_couverts)}/{total}")
-    print(f"Créneaux à pourvoir  : {len(non_couverts)}")
-    for d, s in non_couverts:
-        print(f"   - {jours[d]['label']}  {LABELS_SLOTS[s]}")
+    wb = load_workbook(FICHIER)  # sans data_only pour préserver la feuille
 
-    wb = load_workbook(FICHIER)  # rechargé sans data_only pour préserver la feuille
-    ecrire_planning(wb, jours, affect, non_couverts, charge, noms, dispos)
+    for nom_feuille, avec_site2 in ((FEUILLE_1_SITE, False), (FEUILLE_2_SITES, True)):
+        affect, non_couverts, charge, noms = resoudre(jours, dispos, avec_site2)
+        nb = len(creneaux_scenario(jours, avec_site2))
+        site_txt = "2 sites" if avec_site2 else "1 site"
+        print(f"\n--- Planning {site_txt} ---")
+        print(f"Personnes mobilisées : {len(charge)}")
+        print(f"Créneaux couverts    : {nb - len(non_couverts)}/{nb}")
+        print(f"Créneaux à pourvoir  : {len(non_couverts)}")
+        for d, s, site in non_couverts:
+            print(f"   - {jours[d]['label']}  {LABELS_SLOTS[s]}"
+                  + (f" [site {site}]" if site == 2 else ""))
+        ecrire_planning(wb, nom_feuille, jours, affect, non_couverts,
+                        charge, dispos, avec_site2)
+        print(f"Feuille « {nom_feuille} » écrite")
+
     wb.save(FICHIER)
-    print(f"\nFeuille « {FEUILLE_PLANNING} » écrite dans {FICHIER}")
+    print(f"\nClasseur enregistré : {FICHIER}")
 
 
 if __name__ == "__main__":
