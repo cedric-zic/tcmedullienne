@@ -263,14 +263,17 @@ CENTRE = Alignment(horizontal="center", vertical="center")
 GAUCHE = Alignment(horizontal="left", vertical="center", indent=1)
 
 
-def colonnes_jour(jour, avec_site2):
-    """Colonnes d'une journée pour le scénario : liste (slot, site, libellé)."""
-    cols = []
-    for s in range(jour["nslots"]):
-        cols.append((s, 1, LABELS_SLOTS[s]))
-        if avec_site2 and s in SLOTS_SITE2:
-            cols.append((s, 2, LABELS_SLOTS[s]))
-    return cols
+def lignes_scenario(avec_site2, nslots):
+    """Lignes d'un bloc : liste (slot, site, libellé de ligne).
+    Site 1 : une ligne par créneau horaire. Site 2 : lignes ajoutées
+    EN DESSOUS (créneaux du soir uniquement), pour ne pas élargir le
+    planning vers la droite.
+    """
+    lignes = [(s, 1, LABELS_SLOTS[s]) for s in range(nslots)]
+    if avec_site2:
+        lignes += [(s, 2, f"{LABELS_SLOTS[s]} (site 2)")
+                  for s in SLOTS_SITE2 if s < nslots]
+    return lignes
 
 
 def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
@@ -291,73 +294,53 @@ def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
 
     row = 1
     for bi, bloc in enumerate(blocs, start=1):
-        titre = f"Semaine {bi}" + (" (FINALE)" if jours[bloc[0]]["nslots"] < 4 else "")
+        titre = f"Semaine {bi}" + (" (FINALE)" if any(jours[di]["nslots"] < 4 for di in bloc) else "")
         ws.cell(row=row, column=1, value=titre).font = Font(bold=True, size=12)
         row += 1
 
-        # en-tête : libellés de créneaux, 1re colonne = libellé de ligne
-        entete = []
-        for di in bloc:
-            entete.append(("jour", di))
-            for (s, site, lab) in colonnes_jour(jours[di], avec_site2):
-                entete.append(("slot", di, s, site, lab))
-        largeurs = [len([e for e in entete if e[0] == "jour"])]  # 1 col libellé
-
-        # ligne 1 : labels des jours (alignés à gauche)
-        col = 2
-        jour_span = {}
-        for e in entete:
-            if e[0] == "jour":
-                cell = ws.cell(row=row, column=col, value=jours[e[1]]["label"])
-                cell.fill, cell.font, cell.border = (JOUR_FILL, Font(bold=True), BORD)
-                cell.alignment = GAUCHE
-                jour_span[e[1]] = col
-            col += 1
-        # remplissage à droite du label pour la bande du jour
-        for di, c0 in jour_span.items():
-            ncolj = len(colonnes_jour(jours[di], avec_site2))
-            for k in range(ncolj):
-                cc = ws.cell(row=row, column=c0 + 1 + k)
+        # ligne 1 : labels des jours (alignés à gauche), 4 colonnes par jour
+        for c, di in enumerate(bloc):
+            col = 2 + c * 4
+            cell = ws.cell(row=row, column=col, value=jours[di]["label"])
+            cell.fill, cell.font, cell.border = (JOUR_FILL, Font(bold=True), BORD)
+            cell.alignment = GAUCHE
+            for k in range(1, jours[di]["nslots"]):
+                cc = ws.cell(row=row, column=col + k)
                 cc.fill, cc.border = JOUR_FILL, BORD
         row += 1
 
-        # ligne 2 : libellés de créneaux (+ mention site 2)
-        col = 2
-        for e in entete:
-            if e[0] == "slot":
-                _, di, s, site, lab = e
-                cell = ws.cell(row=row, column=col, value=lab)
+        # ligne 2 : libellés de créneaux (une colonne par créneau horaire)
+        for c, di in enumerate(bloc):
+            for s in range(jours[di]["nslots"]):
+                cell = ws.cell(row=row, column=2 + c * 4 + s, value=LABELS_SLOTS[s])
                 cell.fill, cell.font, cell.alignment, cell.border = (
                     ENTETE_FILL, ENTETE_FONT, CENTRE, BORD)
-            col += 1
         row += 1
 
-        # lignes d'affectation : une ligne par créneau horaire (A à D)
-        # les créneaux du site 2 (même horaire) sont sur la même ligne
-        for s in range(4):
-            ws.cell(row=row, column=1, value=LABELS_SLOTS[s]).font = Font(bold=True)
-            for di in bloc:
-                base = jour_span[di]
-                ncolj = len(colonnes_jour(jours[di], avec_site2))
-                jcols = colonnes_jour(jours[di], avec_site2)
-                for k, (ss, site, lab) in enumerate(jcols):
-                    if ss != s:
-                        continue
-                    cell_col = base + 1 + k
-                    if (di, ss, site) in affect:
-                        txts = []
-                        for n in affect[(di, ss, site)]:
-                            v = dispos.get(n, {}).get((di, ss), "O")
-                            txts.append(f"{n} ({v})" if v.startswith(">") else n)
-                        cell = ws.cell(row=row, column=cell_col, value="\n".join(txts))
-                        cell.alignment, cell.border = CENTRE, BORD
-                        if site == 2:
-                            cell.fill = SITE2_FILL
-                    elif s < jours[di]["nslots"]:
-                        cell = ws.cell(row=row, column=cell_col, value="!! À POURVOIR")
-                        cell.font, cell.alignment, cell.border = TROU_FONT, CENTRE, BORD
-                        if site == 2:
-                            cell.fill = SITE2_FILL
+        # lignes d'affectation : une ligne par (créneau, site).
+        # Les lignes du site 2 sont ajoutées sous celles du site 1.
+        lignes = lignes_scenario(avec_site2, jours[bloc[0]]["nslots"])
+        for (s, site, lab) in lignes:
+            cell = ws.cell(row=row, column=1, value=lab)
+            cell.font = Font(bold=True, italic=(site == 2))
+            for c, di in enumerate(bloc):
+                if s >= jours[di]["nslots"]:
+                    continue
+                col = 2 + c * 4 + s
+                if (di, s, site) in affect:
+                    txts = []
+                    for n in affect[(di, s, site)]:
+                        v = dispos.get(n, {}).get((di, s), "O")
+                        txts.append(f"{n} ({v})" if v.startswith(">") else n)
+                    cell2 = ws.cell(row=row, column=col, value="\n".join(txts))
+                    cell2.alignment, cell2.border = CENTRE, BORD
+                    if site == 2:
+                        cell2.fill = SITE2_FILL
+                else:
+                    cell2 = ws.cell(row=row, column=col, value="!! À POURVOIR")
+                    cell2.font, cell2.alignment, cell2.border = TROU_FONT, CENTRE, BORD
+                    if site == 2:
+                        cell2.fill = SITE2_FILL
             row += 1
         row += 1  # ligne vide entre les blocs
 
@@ -403,7 +386,7 @@ def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
 
     # largeurs de colonnes
     ws.column_dimensions["A"].width = 16
-    ncol_max = 2 + 6 * (8 if avec_site2 else 4)
+    ncol_max = 2 + 6 * 4
     for c in range(2, ncol_max):
         ws.column_dimensions[get_column_letter(c)].width = 13
 
