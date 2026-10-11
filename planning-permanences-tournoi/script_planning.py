@@ -222,7 +222,11 @@ def resoudre(jours, dispos, avec_site2):
     #   1. minimiser les créneaux non couverts (poids écrasant),
     #   2. PRIO AUX PETITES DISPOS : affecter une personne coûte
     #      proportionnellement à son nombre total de disponibilités,
-    #   3. équilibrer la charge (poids très faible).
+    #   3. PRÉFÉRENCE SITE 1 : petit surcoût pour chaque affectation sur le
+    #      site 2 — si une seule personne est disponible sur un créneau,
+    #      elle est donc placée sur le site 1 en priorité (le site 2 n'est
+    #      rempli que par des personnes supplémentaires),
+    #   4. équilibrer la charge (poids très faible).
     nb_dispo = defaultdict(int)
     for (n, d, s), v in [(k, v) for k, v in
                          ((kk, dispos.get(kk[0], {}).get((kk[1], kk[2]), ""))
@@ -234,8 +238,8 @@ def resoudre(jours, dispos, avec_site2):
     for yi in yidx.values():
         c[yi] = 1000000.0
     for (n, d, s, site), vi in idx.items():
-        c[vi] = float(nb_dispo[n])
-    c[zmax] = 0.001
+        c[vi] = float(nb_dispo[n]) + (0.0005 if site == 2 else 0.0)
+    c[zmax] = 0.00001
 
     res = milp(c=c, constraints=cons, integrality=integrality, bounds=bounds)
     if res.status != 0:
