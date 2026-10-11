@@ -261,6 +261,92 @@ def tampon_deja_present(
         logger.warning(f"⚠️ Impossible de vérifier la présence du tampon ({e}) : insertion tentée quand même.")
         return False
 
+# --- FONCTION POUR RETIRER UN TAMPON D'UN PDF ---
+def retirer_tampon_du_pdf(
+    pdf_path: str,
+    image_path: str,
+    rotation: float = 0,
+    max_size: tuple = (200, 200),
+    page_index: int = 0
+):
+    """
+    Retire le tampon (détection par comparaison d'image identique à
+    tampon_deja_present) de la fiche PDF.
+
+    Une sauvegarde de la fiche est créée dans le sous-dossier OLD_Fiches de
+    ATTACHMENTS_DIR, avec l'extension .bak : ni lue ni comptée par
+    verifier_fiches_inscriptions.py (seuls les .pdf du dossier lui-même
+    sont scannés).
+
+    Retourne True si le tampon a été retiré, False s'il n'a pas été trouvé.
+    """
+    SEUIL_PIXEL = 16
+    TOLERANCE_DIFF = 0.05
+    dossier_sauvegarde = os.path.join(ATTACHMENTS_DIR, "OLD_Fiches")
+    os.makedirs(dossier_sauvegarde, exist_ok=True)
+
+    try:
+        ref = Image.open(image_path).convert("RGBA")
+        if rotation != 0:
+            ref = ref.rotate(rotation, expand=True, resample=Image.BICUBIC)
+        if max_size:
+            ref.thumbnail(max_size, Image.BICUBIC)
+
+        doc = pymupdf.open(pdf_path)
+        try:
+            if page_index >= len(doc):
+                logger.warning(f"⚠️ Page {page_index} inexistante dans {pdf_path} : tampon non retiré")
+                return False
+            page = doc[page_index]
+            for img_info in page.get_images(full=True):
+                xref, smask = img_info[0], img_info[1]
+                try:
+                    pix = pymupdf.Pixmap(doc, xref)
+                    if pix.alpha:
+                        rgba = Image.frombytes("RGBA", (pix.width, pix.height), pix.samples)
+                    else:
+                        rgb = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                        rgba = rgb.convert("RGBA")
+                        if smask > 0:
+                            spix = pymupdf.Pixmap(doc, smask)
+                            alpha = Image.frombytes("L", (spix.width, spix.height), spix.samples)
+                            rgba.putalpha(alpha)
+                except Exception:
+                    continue
+                if rgba.size != ref.size:
+                    continue
+                diff = ImageChops.difference(rgba, ref)
+                r, g, b, a = diff.split()
+                ecart = ImageChops.lighter(ImageChops.lighter(r, g), ImageChops.lighter(b, a))
+                ecart = ecart.point(lambda v: 255 if v > SEUIL_PIXEL else 0)
+                hist = ecart.histogram()
+                nb_pixels = ecart.width * ecart.height
+                if nb_pixels and hist[255] / nb_pixels <= TOLERANCE_DIFF:
+                    horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    base = os.path.splitext(os.path.basename(pdf_path))[0]
+                    sauvegarde = os.path.join(dossier_sauvegarde, f"{base}.{horodatage}.bak")
+                    shutil.copy2(pdf_path, sauvegarde)
+                    logger.info(f"🗂️ Sauvegarde de la fiche créée : {sauvegarde}")
+
+                    page.delete_image(xref)
+                    # pymupdf interdit un save non incrémental sur le fichier ouvert :
+                    # sauvegarde dans un fichier temporaire puis remplacement.
+                    output_temp_path = pdf_path + ".tmp"
+                    doc.save(output_temp_path)
+                    doc.close()
+                    with open(output_temp_path, "rb") as src, open(pdf_path, "wb") as dst:
+                        dst.write(src.read())
+                    os.remove(output_temp_path)
+                    logger.info(f"🧽 Tampon retiré de la fiche : {os.path.basename(pdf_path)}")
+                    return True
+            return False
+        finally:
+            if not doc.is_closed:
+                doc.close()
+    except Exception as e:
+        logger.error(f"❌ Impossible de retirer le tampon de {pdf_path} : {e}")
+        return False
+
 # --- FONCTIONS DE NORMALISATION ---
 def remove_accents(input_str):
     if not input_str:
@@ -573,6 +659,28 @@ def update_calc_annulation_status(ods_file, row_index, is_transposed=False, date
         logger.info(f"📝 Mise à jour ODS pour annulation : ligne {row_index + DATA_START_ROW} | Date={date_envoi}")
     except Exception as e:
         logger.error(f"❌ Erreur mise à jour ODS pour annulation : {str(e)}")
+
+# --- FONCTION POUR RÉINITIALISER LE SUIVI D'ENVOI (changement de formule) ---
+def reset_suivi_envoi(ods_file, row_index, test_mode=False, is_transposed=False):
+    """Changement de formule en cours d'année : vide « Email envoyé » (T)
+    et « Date envoie » (U) pour reprendre le cycle de notification classique."""
+    if test_mode:
+        return
+    try:
+        wb = ezodf.opendoc(ods_file)
+        ws = wb.sheets["Liste_adherents"]
+        if is_transposed:
+            # Structure transposée : adhérents en COLONNES
+            ws[row_index + DATA_START_ROW - 1, EMAIL_SENT_COLUMN - 1] = Cell("")
+            ws[row_index + DATA_START_ROW - 1, DATE_ENVOI_COLUMN - 1] = Cell("")
+        else:
+            # Structure normale : adhérents en LIGNES
+            ws[EMAIL_SENT_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell("")
+            ws[DATE_ENVOI_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell("")
+        wb.save()
+        logger.info(f"📝 Suivi d'envoi réinitialisé (T/U vides) : {'colonne' if is_transposed else 'ligne'} {row_index + DATA_START_ROW}")
+    except Exception as e:
+        logger.error(f"❌ Erreur réinitialisation suivi d'envoi : {str(e)}")
 
 # --- FONCTION POUR METTRE À JOUR LE FICHIER calc (AVEC WIN32COM) ---
 def update_calc_status(ods_file, row_index, status, test_mode=False, is_transposed=False, date_envoi=None):
@@ -1019,6 +1127,27 @@ def main():
                 is_relance = False
                 paiement = str(adherent.get("Paiement", "Non")).strip()
                 status = str(status).strip() if status else ""
+
+                # Changement de formule en cours d'année : la macro a recalculé le
+                # paiement à "Partiel" alors que l'email de paiement complet avait déjà
+                # été envoyé. On réinitialise le suivi (T/U) pour reprendre le cycle de
+                # notification classique et on retire le tampon PAYÉ de la fiche.
+                if paiement == "Partiel" and status == "Oui":
+                    logger.info(f"🔁 Changement de formule détecté pour {adherent.get('PRENOM', '')} {adherent.get('NOM', '')} : reprise du cycle de notification")
+                    reset_suivi_envoi(SOURCE_FILE, i, args.test, is_transposed)
+                    status = ""
+                    date_envoi = None
+                    nom_cf = adherent.get("NOM", "")
+                    prenom_cf = adherent.get("PRENOM", "")
+                    attachment_path = find_attachment(nom_cf, prenom_cf, ATTACHMENTS_DIR)
+                    if attachment_path:
+                        if tampon_deja_present(attachment_path, TAMPON_PAYE_PATH, rotation=45):
+                            if retirer_tampon_du_pdf(attachment_path, TAMPON_PAYE_PATH, rotation=45):
+                                logger.info(f"🧽 Tampon PAYÉ retiré de la fiche de {prenom_cf} {nom_cf} (sauvegarde créée)")
+                            else:
+                                logger.warning(f"⚠️ Tampon PAYÉ non retiré de la fiche de {prenom_cf} {nom_cf}")
+                    else:
+                        logger.warning(f"⚠️ Fiche introuvable pour le retrait du tampon PAYÉ de {prenom_cf} {nom_cf}")
 
                 # Cas 1: Paiement COMPLET → Envoyer email de confirmation SI statut ≠ "Oui"
                 if paiement in ["Oui", "Remboursement"]:
