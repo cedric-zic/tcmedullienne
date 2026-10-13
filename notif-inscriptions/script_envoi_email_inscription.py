@@ -1183,7 +1183,8 @@ def main():
                 # été envoyé. On réinitialise le suivi (T/U) pour reprendre le cycle de
                 # notification classique et on retire le tampon PAYÉ de la fiche.
                 if paiement == "Partiel" and status == "Oui":
-                    logger.info(f"🔁 Changement de formule détecté pour {adherent.get('PRENOM', '')} {adherent.get('NOM', '')} : reprise du cycle de notification")
+                    date_dernier_envoi = str(date_envoi).strip() if date_envoi else "non renseignée"
+                    logger.info(f"🔁 Changement de formule détecté pour {adherent.get('PRENOM', '')} {adherent.get('NOM', '')} : reprise du cycle de notification (dernier email envoyé le {date_dernier_envoi})")
                     reset_suivi_envoi(SOURCE_FILE, i, args.test, is_transposed)
                     status = ""
                     date_envoi = None
