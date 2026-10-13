@@ -19,6 +19,17 @@ conditions sont réunies :
 Les paiements se font en général en début de mois : cela laisse le temps de
 vérifier si des virements sont passés avant de relancer.
 
+- **Changement de formule en cours d'année** — si le paiement était complet
+  (« Email envoyé » = Oui) et que le statut repasse à « Partiel » (ex. ajout du
+  padel illimité à une formule tennis, règlement du supplément en plusieurs
+  fois), le script détecte automatiquement le changement : il vide « Email
+  envoyé » (col. T) et « Date envoie » (col. U) pour reprendre le cycle de
+  notification classique, et retire le tampon « Payé » de la fiche PDF.
+  Avant retrait, une sauvegarde de la fiche est créée dans le sous-dossier
+  `Fiches_inscriptions/OLD_Fiches` (extension `.bak`) : elle n'est ni lue ni
+  comptée par `verifier_fiches_inscriptions.py` (seuls les `.pdf` du dossier
+  lui-même sont scannés), donc pas de faux positif.
+
 ### Suivi de paiement (CB / Virement / Espèce)
 
 Quand le règlement est étalé (paiement partiel) et que le « Moyen paiement »
