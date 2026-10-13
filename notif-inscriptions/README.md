@@ -172,6 +172,17 @@ Dépendance : `ezodf` uniquement.
 Fichiers dans `logs/envoi_emails_YYYYMMDD.log`, créés automatiquement à la
 racine d'exécution.
 
+## Sauvegarde de l'ODS
+
+Avant chaque exécution (avant tout envoi d'email), une sauvegarde de l'ODS
+est créée : `{fichier}.YYYYMMJJ_HHMMSS.bak` — même convention que le reste du
+dépôt, la sauvegarde se range juste à côté du fichier actuel dans
+l'explorateur. La sauvegarde de la dernière exécution reste dans le dossier
+courant ; les précédentes sont déplacées dans `OLD_Docs` (5 dernières
+conservées). Les anciens nommages (`sauvegarde_notifs_*`, `sauvegarde_*` de
+`recus-paiement`) restent reconnus par la rotation pour être déplacés et
+purgés.
+
 ## Mode test
 
 `--test` génère un PDF du corps HTML pour chaque adhérent dans `ATTACHMENTS_DIR`
