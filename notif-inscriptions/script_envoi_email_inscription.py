@@ -407,7 +407,7 @@ def generate_html_email_body(adherent, attachment_found=False):
     montant_restant = -round(float(adherent.get("Reste dû", 0) or 0),2)
     montant_paye = montant_club - montant_restant
     print("Montant payé {} = Montant Club {} - Montant restant {}".format(montant_paye, montant_club, montant_restant))
-    moyen_paiement = adherent.get("Moyen paiement", "Non spécifié")
+    moyen_paiement = str(adherent.get("Moyen paiement", "Non spécifié") or "Non spécifié")
 
     tarif_applicable = prix_club + tarif_professeur
     tarif_details = []
@@ -427,7 +427,18 @@ def generate_html_email_body(adherent, attachment_found=False):
     tarif_applicable = montant_club + tarif_professeur
 
     if montant_restant > 0:
-        message_paiement = f"""
+        # Paiement en plusieurs fois par CB / Virement / Espèce : l'adhérent paie
+        # à son rythme, l'email est un suivi de paiement (pas une relance).
+        # Chèques : tous remis d'avance → règlement complet, ce cas ne se produit pas.
+        moyen_paiement_suivi = moyen_paiement.strip().lower()
+        if moyen_paiement_suivi in ["cb", "virement", "espèce", "espece"]:
+            message_paiement = f"""
+        <p style="color: #3498db; font-weight: bold; font-size: 16px;">
+            ℹ️ Suivi de paiement : il vous reste un solde de <strong>{montant_restant:.2f} €</strong> à régler au club.
+        </p>
+        """
+        else:
+            message_paiement = f"""
         <p style="color: #e74c3c; font-weight: bold; font-size: 16px;">
             ⚠️ Rappel : Il reste un solde de <strong>{montant_restant:.2f} €</strong> à régler au club.
         </p>
@@ -1044,7 +1055,12 @@ def main():
 
                 if envoyer_email:
                     adherents_to_process.append((i, adherent, is_relance))
-                    logger.info(f"📌 À traiter: {adherent.get('NOM', '')} {adherent.get('PRENOM', '')} | Relance: {is_relance} | Paiement: {paiement} | Statut: {status} | Date: {date_envoi}")
+                    type_envoi = "Relance" if is_relance else "Premier envoi"
+                    if is_relance:
+                        moyen_ab = str(adherent.get("Moyen paiement", "") or "").strip().lower()
+                        if moyen_ab in ["cb", "virement", "espèce", "espece"]:
+                            type_envoi = "Suivi de paiement"
+                    logger.info(f"📌 À traiter: {adherent.get('NOM', '')} {adherent.get('PRENOM', '')} | {type_envoi} | Paiement: {paiement} | Statut: {status} | Date: {date_envoi}")
 
             except IndexError as e:
                 logger.warning(f"⚠️ Cellule hors limites pour l'adhérent {i}: {str(e)}")
@@ -1079,7 +1095,13 @@ def main():
                 # Adaptation du sujet
                 subject = SUBJECT.format(prenom=prenom, nom=nom)
                 if is_relance:
-                    subject += " - Relance"
+                    # Suivi de paiement pour les règlements en plusieurs fois par
+                    # CB / Virement / Espèce ; relance classique sinon.
+                    moyen_paiement = str(adherent.get("Moyen paiement", "") or "").strip().lower()
+                    if moyen_paiement in ["cb", "virement", "espèce", "espece"]:
+                        subject += " - Suivi de paiement"
+                    else:
+                        subject += " - Relance"
                 
                 if row_index == 57:
                     logger.warning(f"🔍 Adhérent 57 : {adherent}")
