@@ -149,15 +149,25 @@ def sauvegarde_ods():
     """
     src = ods_path()
     horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
-    motif = f"sauvegarde_{FICHIER_SOURCE}.*.bak"
+    # Nommage harmonisé dans tout le dépôt : {fichier}.{date}.bak
+    # (la sauvegarde se range juste à côté du fichier actuel dans l'explorateur).
+    # Les anciens noms restent gérés par la rotation pour être purgés.
+    motif = f"{FICHIER_SOURCE}.*.bak"
+    # Anciens nommages gérés par la rotation (les deux scripts partagent ce fichier ODS) :
+    # - recus-paiement : sauvegarde_{fichier}.{date}.bak
+    # - notif-inscriptions : sauvegarde_notifs_{fichier}.{date}.bak
+    anciens_motifs = [motif, f"sauvegarde_{FICHIER_SOURCE}.*.bak", f"sauvegarde_notifs_{FICHIER_SOURCE}.*.bak"]
     os.makedirs(OLD_DOCS_DIR, exist_ok=True)
-    for ancienne in glob.glob(os.path.join(WORK_DIR, motif)):
-        shutil.move(ancienne, os.path.join(OLD_DOCS_DIR, os.path.basename(ancienne)))
-    dst = os.path.join(WORK_DIR, f"sauvegarde_{FICHIER_SOURCE}.{horodatage}.bak")
+    for motif_glob in anciens_motifs:
+        for ancienne in glob.glob(os.path.join(WORK_DIR, motif_glob)):
+            shutil.move(ancienne, os.path.join(OLD_DOCS_DIR, os.path.basename(ancienne)))
+    dst = os.path.join(WORK_DIR, f"{FICHIER_SOURCE}.{horodatage}.bak")
     shutil.copy2(src, dst)
     logger.info(f"Sauvegarde de sécurité créée : {dst}")
-    vieilles = sorted(glob.glob(os.path.join(OLD_DOCS_DIR, motif)),
-                      key=os.path.getmtime, reverse=True)
+    vieilles = []
+    for motif_glob in anciens_motifs:
+        vieilles.extend(glob.glob(os.path.join(OLD_DOCS_DIR, motif_glob)))
+    vieilles = sorted(set(vieilles), key=os.path.getmtime, reverse=True)
     for trop_vieille in vieilles[OLD_DOCS_KEPT:]:
         os.remove(trop_vieille)
         logger.info(f"Vieille sauvegarde supprimée : {trop_vieille}")
