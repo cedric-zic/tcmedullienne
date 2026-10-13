@@ -25,6 +25,7 @@ Dependances : pandas, openpyxl, odfpy
   pip install pandas openpyxl odfpy
 """
 
+import fnmatch
 import glob
 import os
 import re
@@ -48,7 +49,10 @@ SOUS_DOSSIER_EXPORT = "Extraction_CSV_pour migration"
 # Inscription (fichier gestion des adherents).
 FICHIER_INSCRIPTIONS = "gestion_adherents_2026-2027_NEW.ods"
 # LiveXp (export clients de l'application mobile).
-FICHIER_EXPORT_APP   = "Export_clients_13092026145627.csv"
+# Le fichier d'export est DETECTE automatiquement : dernier fichier
+# .csv du sous-dossier d'extraction (le plus recent par date de
+# modification). Une confirmation est demandee s'il n'est pas du jour.
+MOTIF_EXPORT_APP = "Export_clients_*.csv"
 
 # Fichier de suivi = fichier de synthese (LU puis REECRIT).
 # Il remplace l'ancien suivi (suivi_comptes_adherents_2026.ods).
@@ -457,15 +461,82 @@ def sauvegarde_securise(chemin: str, dossier_old: str, nb_conservees: int = 5):
 # MAIN
 # =========================================================================
 
+def extraire_date_export(nom_fichier):
+    """
+    Extrait la date du nom d'un export LiveXp.
+    Convention de nommage : Export_clients_JJMMAAAAHHMMSS.csv
+    (ex. Export_clients_13092026145627.csv -> 13/09/2026 14:56:27).
+    Retourne un datetime, ou None si aucune date n'est reconnue.
+    """
+    m = re.search(r"(\d{14})", nom_fichier)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(m.group(1), "%d%m%Y%H%M%S")
+    except ValueError:
+        return None
+
+def trouver_dernier_export(dossier, motif=MOTIF_EXPORT_APP):
+    """
+    Retourne le chemin du fichier d'export .csv le plus recent du dossier,
+    selon la date contenue dans le NOM du fichier (JJMMAAAAHHMMSS).
+    Les fichiers sans date reconnue sont ignores.
+    Retourne None si aucun fichier ne correspond.
+    """
+    candidats = []
+    for f in os.listdir(dossier):
+        if not (fnmatch.fnmatch(f, motif) and f.lower().endswith(".csv")):
+            continue
+        date_nom = extraire_date_export(f)
+        if date_nom is None:
+            continue
+        candidats.append((date_nom, os.path.join(dossier, f)))
+    if not candidats:
+        return None
+    return max(candidats, key=lambda c: c[0])[1]
+
+def confirmer_export(chemin_export, aujourdhui=None):
+    """
+    Affiche la date du fichier d'export detecte (date du NOM, JJMMAAAAHHMMSS)
+    et demande confirmation s'il n'est pas du jour.
+    Retourne True si l'on continue, False sinon.
+    """
+    date_fichier = extraire_date_export(os.path.basename(chemin_export))
+    aujourdhui = aujourdhui or datetime.now()
+    taille_ko = os.path.getsize(chemin_export) / 1024
+    print(f"[i] Export app detecte : {os.path.basename(chemin_export)}")
+    if date_fichier is None:
+        print("[!] Date non reconnue dans le nom du fichier")
+        reponse = input("[?] Utiliser ce fichier quand meme ? [o/N] : ").strip().lower()
+        return reponse in ("o", "oui")
+    print(f"[i] Date de l'export   : {date_fichier.strftime('%d/%m/%Y %H:%M')} ({taille_ko:.1f} Ko)")
+    if date_fichier.date() == aujourdhui.date():
+        return True
+    reponse = input(
+        f"[?] Cet export n'est pas du jour ({date_fichier.strftime('%d/%m/%Y')}). "
+        "L'utiliser quand meme ? [o/N] : "
+    ).strip().lower()
+    return reponse in ("o", "oui")
+
 def main():
     import sys
 
     # --- Resolution des chemins complets depuis le dossier de travail ---
     os.makedirs(DOSSIER_TRAVAIL, exist_ok=True)
     chemin_inscriptions  = os.path.join(DOSSIER_TRAVAIL, FICHIER_INSCRIPTIONS)
-    chemin_export        = os.path.join(DOSSIER_TRAVAIL, SOUS_DOSSIER_EXPORT, FICHIER_EXPORT_APP)
+    chemin_export        = trouver_dernier_export(
+        os.path.join(DOSSIER_TRAVAIL, SOUS_DOSSIER_EXPORT))
     chemin_suivi         = os.path.join(DOSSIER_TRAVAIL, FICHIER_SUIVI)
     chemin_ancien_suivi = os.path.join(DOSSIER_TRAVAIL, FICHIER_ANCIEN_SUIVI)
+
+    # --- Detection et confirmation de l'export app ----------------------
+    if chemin_export is None:
+        print(f"[!] Aucun export .csv ({MOTIF_EXPORT_APP}) dans "
+              f"{os.path.join(DOSSIER_TRAVAIL, SOUS_DOSSIER_EXPORT)}")
+        sys.exit(1)
+    if not confirmer_export(chemin_export):
+        print("[!] Export non confirme. Arret.")
+        sys.exit(1)
 
     # --- Chargement fichier 1 (inscriptions) ---------------------------
     try:
