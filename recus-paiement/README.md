@@ -16,7 +16,8 @@ de la feuille d'adhérents `gestion_adherents_2026-2027.ods`.
 ```
 1. script_recus.py -> option 1
    Filtre colonne X = « demandé », génère les PDF,
-   passe X à « encours » (sauvegarde ODS automatique avant modification)
+   passe X à « encours » (sauvegarde ODS automatique avant modification :
+   `{fichier}.YYYYMMJJ_HHMMSS.bak` à côté du fichier, rotation dans `OLD_Docs`)
 
 2. CONTRÔLE HUMAIN
    Vérification des PDF générés dans Recu_paiements/,
