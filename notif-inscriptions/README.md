@@ -64,7 +64,13 @@ python script_envoi_email_inscription.py --test
 
 # Envoi réel
 python script_envoi_email_inscription.py
+
+# Envoi réel avec une limite d'envoi personnalisée pour cette exécution
+python script_envoi_email_inscription.py --limite 5
 ```
+
+`--limite N` fixe le nombre maximum d'emails de cette exécution
+(défaut : 15, cf. `LIMIT_PER_DAY` dans le script).
 
 ## Configuration obligatoire : `secrets_local.py`
 

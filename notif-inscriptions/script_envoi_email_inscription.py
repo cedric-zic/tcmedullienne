@@ -1013,9 +1013,21 @@ def sauvegarde_ods():
 
 
 def main():
+    global LIMIT_PER_DAY
     parser = argparse.ArgumentParser(description="Envoyer des emails de confirmation d'adhésion.")
     parser.add_argument("--test", action="store_true", help="Mode test: génère un PDF au lieu d'envoyer un email.")
+    parser.add_argument(
+        "--limite",
+        type=int,
+        default=LIMIT_PER_DAY,
+        metavar="N",
+        help=f"Nombre maximum d'emails à envoyer lors de cette exécution (défaut : {LIMIT_PER_DAY})."
+    )
     args = parser.parse_args()
+
+    LIMIT_PER_DAY = args.limite
+    if args.limite <= 0:
+        raise SystemExit("❌ La limite d'envoi doit être un entier positif.")
 
     try:
         sauvegarde_ods()
