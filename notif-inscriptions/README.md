@@ -29,6 +29,24 @@ vérifier si des virements sont passés avant de relancer.
   `Fiches_inscriptions/OLD_Fiches` (extension `.bak`) : elle n'est ni lue ni
   comptée par `verifier_fiches_inscriptions.py` (seuls les `.pdf` du dossier
   lui-même sont scannés), donc pas de faux positif.
+
+### Suivi de paiement (CB / Virement / Espèce)
+
+Quand le règlement est étalé (paiement partiel) et que le « Moyen paiement »
+(col. AB) est **CB, Virement ou Espèce**, les emails successifs ne sont pas des
+relances mais des **suivis de paiement** : l'adhérent paie à intervalles plus ou
+moins réguliers et le club s'assure des bons règlements. Le sujet devient
+« ... - Suivi de paiement » et le corps indique le solde restant sans mention
+de relance. La cadence est identique à celle des relances.
+
+Cas particuliers :
+- **Chèque** : tous les chèques sont remis d'avance puis encaissés
+  régulièrement → règlement considéré comme complet, pas de suivi.
+- **Moyen paiement vide** : aucun paiement n'a encore eu lieu → relance
+  classique.
+- La colonne « Email envoyé » (T) garde le statut « Relancer » dans tous les
+cas : c'est le « Moyen paiement » qui fait la distinction, pas le statut.
+
 - **Professeurs** — application d'un tampon « Professeur » sur la fiche PDF.
 - **Annulations** — application d'un tampon « Annulé » + email d'annulation.
 
