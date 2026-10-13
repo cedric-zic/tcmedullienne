@@ -73,7 +73,7 @@ Exécutables depuis **Outils → Macros → Macros Python → Mes macros → mac
 | `copier_donnees_filtrees_vers_groupes` | `Liste_adherents` → `Groupes` | Vide les colonnes A-D de `Groupes`, puis recopie `NOM-Prénom`, abonnement et téléphone des adhérents **hors** formules Loisir / Adhésion seule / Padel illimité, dont le statut d'inscription (col. V) est « Ok » ou « En cours ». |
 | `MiseEnFormeAdherentsEnregistresNonPresents` | `adherents_enregistres` | Colore en rouge pâle les adhérents de la feuille `adherents_enregistres` absents de `Liste_adherents` (comparaison normalisée : sans accents, minuscules). |
 | `AppliquerMiseEnFormeEtCompterOccurrences` | `Groupes` | Compte les inscriptions de chaque adhérent dans les plages de créneaux, colore selon le nombre d'occurrences (vert 1, vert foncé 2, jaune 3, violet 4+, rouge = nom inconnu/faute de frappe), écrit le compte en colonne C, applique des bordures. |
-| `AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents` | `Liste_adherents` | Mise en forme des colonnes de suivi : Montant club (Z), Reste dû (AA), **calcul du statut de paiement (Y : Oui/Non/Partiel/Remboursement)**, Famille (D, vert si ≥ 3 membres), statuts Ok/En cours/Annulé (P, Q, S, V, W, X), moyen de paiement (AB), nouveaux adhérents (BI=1 → colonnes A/B en vert). |
+| `AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents` | `Liste_adherents` | Mise en forme des colonnes de suivi : Montant club (Z), Reste dû (AA), **calcul du statut de paiement (Y : Oui/Non/Partiel/Remboursement)**, Famille (D, vert si ≥ 3 membres), statuts Ok/En cours/Annulé (P, Q, S, V, W, X), moyen de paiement (AB), nouveaux adhérents (BI=1 → colonnes A/B en vert). Si « Inscription validée » (V) = « Annulé » et que l'adhérent avait payé (statut Oui/Partiel/Remboursement), le statut de paiement est forcé à « Remboursement » (annulation après début des cours, montant calculé manuellement au prorata). |
 | `AppliquerMiseEnForme_PlageMensuelle_ListeAdherents` | `Liste_adherents` | Colore en vert clair toute cellule renseignée dans la plage mensuelle (colonnes 29-58). |
 | `VerifierDoublonsNomPrenom` | `Liste_adherents` | Détecte les doublons Nom+Prénom et colore les lignes concernées en rouge. Réinitialise en blanc au préalable (un doublon corrigé redevient blanc). |
 | `VerifierColonneANCV` | `Liste_adherents` | Vérifie la colonne AD (ANCV) : signale toute valeur non vide sur une ligne sans adhérent et toute formule présente en AD (déplacée depuis BI suite à un tri/filtre). Colore en rouge clair les cellules suspectes et affiche un récapitulatif. |
@@ -87,7 +87,7 @@ Exécutables depuis **Outils → Macros → Macros Python → Mes macros → mac
 | P | Fiche validée |
 | Q | Pré-inscription ADOC |
 | S | Fiche numérisée |
-| V | Inscription validée ADOC |
+| V | Inscription validée |
 | W | Licence générée |
 | X | Demande reçu |
 | Y | Paiement (calculé par la macro) |

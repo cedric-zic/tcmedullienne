@@ -263,7 +263,7 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
     INDEX_FICHE_VALIDEE = 15 # Colonne P (Fiche validée)
     INDEX_PREINSCRIPTION = 16 # Colonne Q (Pré-inscription ADOC)
     INDEX_FICHE_NUMERISEE = 18 # Colonne S (Fiche numérisée)
-    INDEX_INSCRIPTION_VALIDEE = 21 # Colonne V (Inscription validée ADOC)
+    INDEX_INSCRIPTION_VALIDEE = 21 # Colonne V (Inscription validée)
     INDEX_LICENCE_GENEREE = 22 # Colonne W (Licence générée ADOC)
     INDEX_DEMANDE_RECU = 23 # Colonne X (Demande reçu)
     INDEX_PAIEMENT = 24 # Colonne Y (Paiement)
@@ -334,6 +334,12 @@ def AppliquerMiseEnFormeConditionnelle_Montants_ListeAdherents(*args):
                         statut_paiement = "Non"  # Aucun paiement (ex: 120 / -120,00 €)
                     else:
                         statut_paiement = "Partiel"  # Paiement partiel (ex: 175 / -25,00 €)
+
+                # Adhérent ayant annulé son inscription après avoir payé :
+                # un remboursement est à prévoir (montant calculé manuellement au prorata).
+                statut_inscription = feuille.getCellByPosition(INDEX_INSCRIPTION_VALIDEE, i).getString().strip()
+                if statut_inscription == "Annulé" and statut_paiement in ("Oui", "Partiel", "Remboursement"):
+                    statut_paiement = "Remboursement"
 
                 # Écrire le statut dans la colonne Y
                 cell_paiement.setString(statut_paiement)
