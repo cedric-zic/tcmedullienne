@@ -431,19 +431,24 @@ def sauvegarde_securise(chemin: str, dossier_old: str, nb_conservees: int = 5):
     if not os.path.exists(chemin):
         return
     horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Nommage harmonise dans tout le depot : {fichier}.{date}.bak
-    # (la sauvegarde se range juste a cote du fichier actuel dans l'explorateur).
+    # Nommage harmonise dans tout le depot : {base}.{date}.{ext}
+    # (extension native conservee : le fichier s'ouvre directement, sans renommage ;
+    # la sauvegarde se range juste a cote du fichier actuel dans l'explorateur).
     # Les anciens noms restent geres par la rotation pour etre purges.
-    motif = f"{os.path.basename(chemin)}.*.bak"
     base_sans_ext = os.path.splitext(os.path.basename(chemin))[0]
     ext = os.path.splitext(chemin)[1]
-    anciens_motifs = [motif, f"{base_sans_ext}_sauvegarde_*{ext}"]
+    motif = f"{base_sans_ext}.*{ext}"
+    anciens_motifs = [
+        motif,
+        f"{os.path.basename(chemin)}.*.bak",          # nommage intermediaire
+        f"{base_sans_ext}_sauvegarde_*{ext}",         # premier nommage analyse-comptes
+    ]
     try:
         os.makedirs(dossier_old, exist_ok=True)
         for motif_glob in anciens_motifs:
             for ancienne in glob.glob(os.path.join(os.path.dirname(chemin), motif_glob)):
                 shutil.move(ancienne, os.path.join(dossier_old, os.path.basename(ancienne)))
-        cible = f"{chemin}.{horodatage}.bak"
+        cible = f"{os.path.join(os.path.dirname(chemin), base_sans_ext)}.{horodatage}{ext}"
         shutil.copy2(chemin, cible)
         print(f"[i] Sauvegarde precedente : {cible}")
         vieilles = []

@@ -49,8 +49,9 @@ python analyse_comptes_adherents.py
 ```
 
 Une sauvegarde horodatée du fichier de synthèse est créée avant chaque
-réécriture (`{fichier}.YYYYMMJJ_HHMMSS.bak`, même convention que le reste du dépôt —
-la sauvegarde se range juste à côté du fichier actuel dans l'explorateur).
+réécriture (`{base}.YYYYMMJJ_HHMMSS.xlsx`, même convention que le reste du
+dépôt — extension native conservée, la sauvegarde s'ouvre directement et se
+range juste à côté du fichier actuel dans l'explorateur).
 Les anciennes sauvegardes sont déplacées dans `OLD_Docs` (5 dernières conservées).
 
 ## Dépendances
