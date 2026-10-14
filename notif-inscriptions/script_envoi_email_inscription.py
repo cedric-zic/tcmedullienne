@@ -689,23 +689,26 @@ def update_calc_annulation_status(ods_file, row_index, is_transposed=False, date
 
 # --- FONCTION POUR RÉINITIALISER LE SUIVI D'ENVOI (changement de formule) ---
 def reset_suivi_envoi(ods_file, row_index, test_mode=False, is_transposed=False):
-    """Changement de formule en cours d'année : vide « Email envoyé » (T)
-    et « Date envoie » (U) pour reprendre le cycle de notification classique."""
+    """Changement de formule en cours d'année : passe « Email envoyé » (T)
+    à « Relancer » et « Date envoie » (U) à la date du jour. L'adhérent entre
+    ainsi dans le circuit normal de relance/suivi : le prochain email ne
+    partira qu'à partir du 15 du mois suivant, 30 jours après (règle commune)."""
     if test_mode:
         return
     try:
         wb = ezodf.opendoc(ods_file)
         ws = wb.sheets["Liste_adherents"]
+        date_jour = datetime.now().strftime("%d/%m/%Y")
         if is_transposed:
             # Structure transposée : adhérents en COLONNES
-            ws[row_index + DATA_START_ROW - 1, EMAIL_SENT_COLUMN - 1] = Cell("")
-            ws[row_index + DATA_START_ROW - 1, DATE_ENVOI_COLUMN - 1] = Cell("")
+            ws[row_index + DATA_START_ROW - 1, EMAIL_SENT_COLUMN - 1] = Cell("Relancer")
+            ws[row_index + DATA_START_ROW - 1, DATE_ENVOI_COLUMN - 1] = Cell(date_jour)
         else:
             # Structure normale : adhérents en LIGNES
-            ws[EMAIL_SENT_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell("")
-            ws[DATE_ENVOI_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell("")
+            ws[EMAIL_SENT_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell("Relancer")
+            ws[DATE_ENVOI_COLUMN - 1, row_index + DATA_START_ROW - 1] = Cell(date_jour)
         wb.save()
-        logger.info(f"📝 Suivi d'envoi réinitialisé (T/U vides) : {'colonne' if is_transposed else 'ligne'} {row_index + DATA_START_ROW}")
+        logger.info(f"📝 Changement de formule : T=Relancer, U={date_jour} pour {'colonne' if is_transposed else 'ligne'} {row_index + DATA_START_ROW} — prochain envoi après le 15 du mois suivant (+30 j)")
     except Exception as e:
         logger.error(f"❌ Erreur réinitialisation suivi d'envoi : {str(e)}")
 
@@ -1206,10 +1209,13 @@ def main():
                 # notification classique et on retire le tampon PAYÉ de la fiche.
                 if paiement == "Partiel" and status == "Oui":
                     date_dernier_envoi = str(date_envoi).strip() if date_envoi else "non renseignée"
-                    logger.info(f"🔁 Changement de formule détecté pour {adherent.get('PRENOM', '')} {adherent.get('NOM', '')} : reprise du cycle de notification (dernier email envoyé le {date_dernier_envoi})")
+                    logger.info(f"🔁 Changement de formule détecté pour {adherent.get('PRENOM', '')} {adherent.get('NOM', '')} : reprise du cycle de notification après le 15 du mois suivant (dernier email envoyé le {date_dernier_envoi})")
                     reset_suivi_envoi(SOURCE_FILE, i, args.test, is_transposed)
-                    status = ""
-                    date_envoi = None
+                    # L'adhérent entre dans le circuit normal (T=Relancer, U=aujourd'hui) :
+                    # PAS d'envoi immédiat, le prochain email partira après le 15 du mois
+                    # suivant, 30 jours après. On neutralise l'adhérent pour ce traitement.
+                    status = "Relancer"
+                    date_envoi = datetime.now().strftime("%d/%m/%Y")
                     nom_cf = adherent.get("NOM", "")
                     prenom_cf = adherent.get("PRENOM", "")
                     attachment_path = find_attachment(nom_cf, prenom_cf, ATTACHMENTS_DIR)

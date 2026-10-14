@@ -14,7 +14,11 @@ Croise 3 sources :
 - **Inscription** : `gestion_adherents_2026-2027.ods` (NOM, PRENOM, FORMULE ADOC,
   Inscription validée col. V, Paiement col. Y).
 - **LiveXp** : export clients de l'application mobile (`.csv`) — solde,
-  nom/prénom, `Type_client` (vide = compte non valide).
+  nom/prénom, `Type_client` (vide = compte non valide). Le **dernier** export
+  est détecté automatiquement dans `Extraction_CSV_pour migration`
+  (nommage `Export_clients_JJMMAAAAHHMMSS.csv`, tri sur la date du nom) ;
+  sa date est affichée et une **confirmation est demandée s'il n'est pas du
+  jour** (réponse autre que `o`/`oui` → arrêt du script).
 - **Suivi** : `synthese_comptes_adherents_2026-2027.xlsx` — LU pour récupérer
   la saisie manuelle (Compte créé, Adhésion validée, Email envoyé, Crédit,
   Commentaire), puis **REÉCRIT** à chaque exécution.
