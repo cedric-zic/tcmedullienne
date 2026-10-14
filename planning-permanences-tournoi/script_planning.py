@@ -235,8 +235,13 @@ def resoudre(jours, dispos, avec_site2):
             nb_dispo[n] += 1
 
     c = np.zeros(nTot)
-    for yi in yidx.values():
-        c[yi] = 1000000.0
+    # poids des trous : un trou sur un créneau A/B en semaine (jours ouvrés)
+    # est moins grave (vous l'avez indiqué) -> pénalité réduite, le solveur
+    # déplace donc les trous vers ces créneaux quand c'est possible.
+    for (d, s, site), yi in yidx.items():
+        we = jours[d]["label"].strip().lower()[:3] in ("sam", "dim")
+        grave = (not we) and s in (0, 1)
+        c[yi] = 200000.0 if grave else 1000000.0
     for (n, d, s, site), vi in idx.items():
         c[vi] = float(nb_dispo[n]) + (0.0005 if site == 2 else 0.0)
     c[zmax] = 0.00001
