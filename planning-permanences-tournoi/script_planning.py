@@ -492,8 +492,28 @@ def main():
                         charge, dispos, avec_site2)
         print(f"Feuille « {nom_feuille} » écrite")
 
-    wb.save(FICHIER)
-    print(f"\nClasseur enregistré : {FICHIER}")
+    try:
+        wb.save(FICHIER)
+    except PermissionError:
+        print("\n*** ERREUR : le classeur n'a pas pu être enregistré. ***")
+        print("    Il est probablement encore ouvert dans Excel (ou verrouillé")
+        print("    par un autre programme / une synchronisation OneDrive).")
+        print("    Fermez complètement Excel puis relancez le script.")
+        raise SystemExit(1)
+
+    # vérification : relire le classeur et confirmer que les 2 feuilles y sont
+    from openpyxl import load_workbook as _lw
+    wb_verif = _lw(FICHIER, read_only=True)
+    manquantes = [f for f in (FEUILLE_1_SITE, FEUILLE_2_SITES)
+                  if f not in wb_verif.sheetnames]
+    wb_verif.close()
+    if manquantes:
+        print(f"\n*** ALERTE : feuilles absentes après enregistrement : {manquantes}")
+        print("    Le fichier a probablement été réécrit après la sauvegarde")
+        print("    (Excel ouvert, synchronisation OneDrive/lecteur réseau...).")
+        raise SystemExit(1)
+    print(f"\nClasseur enregistré et vérifié : {FICHIER}")
+    print(f"Feuilles : {', '.join(wb.sheetnames)}")
 
 
 if __name__ == "__main__":
