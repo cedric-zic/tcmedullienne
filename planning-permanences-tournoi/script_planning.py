@@ -110,15 +110,17 @@ def lire_dispos(fichier, feuille):
             jours.append({"label": c, "nslots": nsl})
 
         # détection des colonnes d'options (juste après le NOM, avant le
-        # premier jour) : lecture des en-têtes de la ligne NOM
+        # premier jour) : les intitulés peuvent être sur la ligne des jours
+        # (au-dessus de NOM) ou sur la ligne NOM elle-même
         if opt_consec_col is None and labels:
             first_day_col = labels[0][0]
-            for col in range(1, first_day_col):
-                h = _sans_accent(nom_row[col] if col < len(nom_row) else "")
-                if "cons" in h:
-                    opt_consec_col = col
-                elif "soir" in h or "matin" in h:
-                    opt_da_col = col
+            for entete_row in (r, nom_row):
+                for col in range(1, first_day_col):
+                    h = _sans_accent(entete_row[col] if col < len(entete_row) else "")
+                    if "cons" in h:
+                        opt_consec_col = col
+                    elif "soir" in h or "matin" in h:
+                        opt_da_col = col
 
         pr = hr + 2
         while pr < len(rows) and rows[pr] and rows[pr][0] and rows[pr][0] != "NOM":
