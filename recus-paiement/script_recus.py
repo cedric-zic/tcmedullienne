@@ -152,16 +152,22 @@ def sauvegarde_ods():
     # Nommage harmonisé dans tout le dépôt : {fichier}.{date}.bak
     # (la sauvegarde se range juste à côté du fichier actuel dans l'explorateur).
     # Les anciens noms restent gérés par la rotation pour être purgés.
-    motif = f"{FICHIER_SOURCE}.*.bak"
+    base_sans_ext, ext = os.path.splitext(FICHIER_SOURCE)
+    # Nommage harmonisé dans tout le dépôt : {base}.{date}.{ext}
+    # (extension native conservée : le fichier s'ouvre directement, sans renommage ;
+    # la sauvegarde se range juste à côté du fichier actuel dans l'explorateur).
+    motif = f"{base_sans_ext}.*{ext}"
     # Anciens nommages gérés par la rotation (les deux scripts partagent ce fichier ODS) :
+    # - nommage intermédiaire : {fichier}.{date}.bak
     # - recus-paiement : sauvegarde_{fichier}.{date}.bak
     # - notif-inscriptions : sauvegarde_notifs_{fichier}.{date}.bak
-    anciens_motifs = [motif, f"sauvegarde_{FICHIER_SOURCE}.*.bak", f"sauvegarde_notifs_{FICHIER_SOURCE}.*.bak"]
+    anciens_motifs = [motif, f"{FICHIER_SOURCE}.*.bak",
+                     f"sauvegarde_{FICHIER_SOURCE}.*.bak", f"sauvegarde_notifs_{FICHIER_SOURCE}.*.bak"]
     os.makedirs(OLD_DOCS_DIR, exist_ok=True)
     for motif_glob in anciens_motifs:
         for ancienne in glob.glob(os.path.join(WORK_DIR, motif_glob)):
             shutil.move(ancienne, os.path.join(OLD_DOCS_DIR, os.path.basename(ancienne)))
-    dst = os.path.join(WORK_DIR, f"{FICHIER_SOURCE}.{horodatage}.bak")
+    dst = os.path.join(WORK_DIR, f"{base_sans_ext}.{horodatage}{ext}")
     shutil.copy2(src, dst)
     logger.info(f"Sauvegarde de sécurité créée : {dst}")
     vieilles = []
