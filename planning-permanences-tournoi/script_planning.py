@@ -7,8 +7,11 @@ Ce script :
   2. résout l'affectation optimale des personnes aux créneaux :
        - au moins 1 personne par créneau (si possible),
        - jamais 2 créneaux le même jour pour une même personne,
-       - jamais 2 jours consécutifs pour une même personne
-         (élimine de fait le cas "créneau D le soir + créneau A le lendemain"),
+       - jamais 2 jours consécutifs pour une même personne, SAUF si la
+         colonne "2 jours consécutifs" est cochée (O) pour elle ; l'enchaine-
+         ment D (21h-fin) + A (9h-13h) le lendemain reste interdit sauf si
+         la colonne "Soir+Matin" est aussi cochée (facultatif, 2 colonnes
+         placées juste après le NOM dans Feuil1),
        - au plus MAX_TOTAL (6) permanences par personne sur tout le tournoi,
        - au plus MAX_PAR_SEMAINE (4) permanences par personne et par semaine,
        - minimise le nombre de créneaux non couverts,
@@ -56,10 +59,20 @@ SLOTS_SITE2 = (2, 3)
 
 
 # ------------------------------------------------------------ LECTURE XLSX ---
+def _sans_accent(s):
+    return (s.replace("é", "e").replace("è", "e").replace("ê", "e")
+             .replace("à", "a").replace("ç", "c").lower())
+
+
 def lire_dispos(fichier, feuille):
-    """Retourne (jours, dispos).
-    jours  : liste de dict {label, nslots}
-    dispos : dict nom -> {(jour, slot) -> valeur}
+    """Retourne (jours, dispos, options).
+    jours   : liste de dict {label, nslots}
+    dispos  : dict nom -> {(jour, slot) -> valeur}
+    options : dict nom -> {"consecutifs": bool, "soir_matin": bool}
+              lu dans 2 colonnes placées juste après le NOM (facultatif) :
+              - "2 jours consecutifs" : O = peut faire 2 jours de suite
+              - "Soir+Matin"          : O = peut enchainer D puis A le
+                lendemain (implique l'autorisation des 2 jours de suite)
     """
     wb = load_workbook(fichier, data_only=True)
     ws = wb[feuille]
@@ -76,6 +89,8 @@ def lire_dispos(fichier, feuille):
 
     jours = []
     dispos = defaultdict(dict)
+    options = defaultdict(dict)          # nom -> {"consecutifs": bool, "soir_matin": bool}
+    opt_consec_col, opt_da_col = None, None   # colonnes des 2 options
     day_index = -1
     for hr in day_rows:
         r = rows[hr]
@@ -94,6 +109,17 @@ def lire_dispos(fichier, feuille):
             block.append((day_index, cols, nsl, c))
             jours.append({"label": c, "nslots": nsl})
 
+        # détection des colonnes d'options (juste après le NOM, avant le
+        # premier jour) : lecture des en-têtes de la ligne NOM
+        if opt_consec_col is None and labels:
+            first_day_col = labels[0][0]
+            for col in range(1, first_day_col):
+                h = _sans_accent(nom_row[col] if col < len(nom_row) else "")
+                if "cons" in h:
+                    opt_consec_col = col
+                elif "soir" in h or "matin" in h:
+                    opt_da_col = col
+
         pr = hr + 2
         while pr < len(rows) and rows[pr] and rows[pr][0] and rows[pr][0] != "NOM":
             nom = rows[pr][0]
@@ -105,8 +131,17 @@ def lire_dispos(fichier, feuille):
                     v = rows[pr][col] if col < len(rows[pr]) else ""
                     if v:
                         dispos[nom][(di, s)] = v
+            # colonnes d'options individuelles (facultatives)
+            if opt_consec_col is not None or opt_da_col is not None:
+                v1 = rows[pr][opt_consec_col] if (opt_consec_col is not None
+                        and opt_consec_col < len(rows[pr])) else ""
+                v2 = rows[pr][opt_da_col] if (opt_da_col is not None
+                        and opt_da_col < len(rows[pr])) else ""
+                consec = str(v1).strip().upper() == "O"
+                da = str(v2).strip().upper() == "O"
+                options[nom] = {"consecutifs": consec, "soir_matin": da}
             pr += 1
-    return jours, dict(dispos)
+    return jours, dict(dispos), dict(options)
 
 
 def est_dispo(valeur):
@@ -128,7 +163,7 @@ def creneaux_scenario(jours, avec_site2):
     return out
 
 
-def resoudre(jours, dispos, avec_site2):
+def resoudre(jours, dispos, avec_site2, options=None):
     """Résout l'affectation pour un scénario (site 2 inclus ou non).
     Retourne (affectations, non_couverts, charge).
     """
@@ -174,18 +209,40 @@ def resoudre(jours, dispos, avec_site2):
         for v in vs:
             row[v] = 1
         A.append(row); lb.append(-np.inf); ub.append(1)
-    # jamais 2 jours consécutifs pour une même personne (tous sites confondus)
+    # jours consécutifs : règle par personne (tous sites confondus)
+    #   - par défaut : jamais 2 jours de suite ;
+    #   - option "2 jours consecutifs" : autorisé, SAUF l'enchainement
+    #     D (21h-fin) le soir + A (9h-13h) le lendemain, interdit sauf si
+    #     l'option "Soir+Matin" est aussi cochée pour cette personne.
+    options = options or {}
     for n in noms:
+        opt = options.get(n, {})
+        consec = opt.get("consecutifs", False)
+        da_ok = opt.get("soir_matin", False)
         for d in range(nD - 1):
             v1 = [vi for (nn, dd, s, site), vi in idx.items()
                   if nn == n and dd == d]
             v2 = [vi for (nn, dd, s, site), vi in idx.items()
                   if nn == n and dd == d + 1]
-            if v1 and v2:
+            if not (v1 and v2):
+                continue
+            if not consec:
+                # contrainte stricte : au plus 1 créneau sur les 2 jours
                 row = np.zeros(nTot)
                 for v in v1 + v2:
                     row[v] = 1
                 A.append(row); lb.append(-np.inf); ub.append(1)
+            elif not da_ok:
+                # 2 jours de suite autorisés, mais jamais D puis A
+                vd = [vi for (nn, dd, s, site), vi in idx.items()
+                      if nn == n and dd == d and s == jours[d]["nslots"] - 1]
+                va = [vi for (nn, dd, s, site), vi in idx.items()
+                      if nn == n and dd == d + 1 and s == 0]
+                if vd and va:
+                    row = np.zeros(nTot)
+                    for v in vd + va:
+                        row[v] = 1
+                    A.append(row); lb.append(-np.inf); ub.append(1)
     # charge <= max global (équilibrage, phase suivante)
     perpers = defaultdict(list)
     for (n, d, s, site), vi in idx.items():
@@ -403,7 +460,15 @@ def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
 
 # ------------------------------------------------------------------ MAIN ----
 def main():
-    jours, dispos = lire_dispos(FICHIER, FEUILLE_DISPO)
+    jours, dispos, options = lire_dispos(FICHIER, FEUILLE_DISPO)
+    nb_consec = sum(1 for o in options.values() if o.get("consecutifs"))
+    nb_da = sum(1 for o in options.values() if o.get("soir_matin"))
+    if options:
+        print(f"Options individuelles : {nb_consec} personne(s) autorisée(s) "
+              f"en 2 jours consécutifs, {nb_da} en enchained Soir+Matin.")
+    else:
+        print("Pas de colonnes d'options détectées (2 jours consecutifs / "
+              "Soir+Matin) : contraintes strictes pour tout le monde.")
     total = sum(j["nslots"] for j in jours)
     print(f"{len(jours)} jours, {total} créneaux (1 site), "
           f"{total + 2 * sum(1 for j in jours if j['nslots'] == 4)} (2 sites).")
@@ -411,7 +476,7 @@ def main():
     wb = load_workbook(FICHIER)  # sans data_only pour préserver la feuille
 
     for nom_feuille, avec_site2 in ((FEUILLE_1_SITE, False), (FEUILLE_2_SITES, True)):
-        affect, non_couverts, charge, noms = resoudre(jours, dispos, avec_site2)
+        affect, non_couverts, charge, noms = resoudre(jours, dispos, avec_site2, options)
         nb = len(creneaux_scenario(jours, avec_site2))
         site_txt = "2 sites" if avec_site2 else "1 site"
         print(f"\n--- Planning {site_txt} ---")
