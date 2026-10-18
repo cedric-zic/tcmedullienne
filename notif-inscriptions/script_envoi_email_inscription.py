@@ -1255,21 +1255,38 @@ def main():
                         is_relance = True
 
                 if envoyer_email:
-                    adherents_to_process.append((i, adherent, is_relance))
-                    type_envoi = "Relance" if is_relance else "Premier envoi"
-                    if is_relance:
+                    # Priorisation des envois sous limite journalière :
+                    # 1 = Premier envoi, 2 = Relance, 3 = Suivi de paiement.
+                    if not is_relance:
+                        priorite_envoi = 1
+                    else:
                         moyen_ab = str(adherent.get("Moyen paiement", "") or "").strip().lower()
                         if moyen_ab in ["cb", "virement", "espèce", "espece"]:
-                            type_envoi = "Suivi de paiement"
+                            priorite_envoi = 3
+                        else:
+                            priorite_envoi = 2
+                    adherents_to_process.append((i, adherent, is_relance, priorite_envoi))
+                    type_envoi = "Relance" if is_relance else "Premier envoi"
+                    if priorite_envoi == 3:
+                        type_envoi = "Suivi de paiement"
                     logger.info(f"📌 À traiter: {adherent.get('NOM', '')} {adherent.get('PRENOM', '')} | {type_envoi} | Paiement: {paiement} | Statut: {status} | Date: {date_envoi}")
 
             except IndexError as e:
                 logger.warning(f"⚠️ Cellule hors limites pour l'adhérent {i}: {str(e)}")
-                adherents_to_process.append((i, adherent, False))
+                adherents_to_process.append((i, adherent, False, 1))
 
         # logger.info(f"📊 {len(adherents_to_process)} adhérents à traiter (hors annulations).")
         total_to_process = len(adherents_to_process)
-        logger.info(f"📊 {total_to_process} adhérents à traiter hors annulations (limite journalière: {LIMIT_PER_DAY}).")
+        nb_premiers = sum(1 for item in adherents_to_process if item[3] == 1)
+        nb_relances = sum(1 for item in adherents_to_process if item[3] == 2)
+        nb_suivis = sum(1 for item in adherents_to_process if item[3] == 3)
+        logger.info(f"📊 {total_to_process} adhérents à traiter hors annulations (limite journalière: {LIMIT_PER_DAY}) : {nb_premiers} premier(s) envoi(s), {nb_relances} relance(s), {nb_suivis} suivi(s) de paiement.")
+
+        # Tri par priorité : premiers envois, puis relances, puis suivis de paiement.
+        # À priorité égale, l'ordre du fichier est conservé (tri stable).
+        adherents_to_process.sort(key=lambda item: item[3])
+        if nb_relances > 0 or nb_suivis > 0:
+            logger.info(f"🔘 Priorisation appliquée : {nb_premiers} premier(s) envoi(s) traité(s) en priorité, puis {nb_relances} relance(s), puis {nb_suivis} suivi(s) de paiement.")
 
         total_sent = 0
         for i in range(0, len(adherents_to_process), BATCH_SIZE):
@@ -1287,7 +1304,7 @@ def main():
             logger.info(f"📤 Envoi du lot {i//BATCH_SIZE + 1} ({len(batch)} emails)...")
             emails_du_lot = len(batch)
             rang_dans_serie = i  # index du premier email du lot dans la série globale
-            for rang, (row_index, adherent, is_relance) in enumerate(batch):
+            for rang, (row_index, adherent, is_relance, priorite_envoi) in enumerate(batch):
                 nom = adherent.get("NOM", "")
                 prenom = adherent.get("PRENOM", "")
                 email = adherent.get("Email", "")
