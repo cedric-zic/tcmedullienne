@@ -170,35 +170,13 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
             resultat = extraire_couche_bureau(couche_texte, resultat)
         if doc.page_count > 1:
             resultat.ajouter_alerte(
-                f"PDF multi-pages ({doc.page_count}) : scan probablement en morceaux — "
-                "assemblage manuel nécessaire avant OCR"
+                f"PDF multi-pages ({doc.page_count}) : pages suivantes ignorées "
+                "(probablement chèques / preuves de paiement scannés en complément)"
             )
-        # Sélection de la MEILLEURE page : parmi toutes les pages, choisir celle
-        # dont l'image principale couvre le mieux la page (évite de prendre une
-        # page blanche ou un fragment isolé quand le PDF contient plusieurs
-        # images pleine page — ex: BANUELOS 4 pages identiques en qualité).
-        meilleure_page = None
-        meilleur_score = -1.0
-        for pno in range(doc.page_count):
-            p = doc[pno]
-            score = 0.0
-            for info in p.get_image_info(xrefs=True):
-                xref = info["xref"]
-                pix = fitz.Pixmap(doc, xref)
-                if pix.width < 500 or pix.height < 500:
-                    continue
-                bb = info["bbox"]
-                # Score = couverture de la page (0..1) × résolution
-                couv = min(1.0, (bb[2]-bb[0]) / p.rect.width) * min(1.0, (bb[3]-bb[1]) / p.rect.height)
-                resol = min(pix.width, pix.height) / 500.0
-                score = max(score, couv * resol)
-            if score > meilleur_score:
-                meilleur_score = score
-                meilleure_page = pno
-        if meilleure_page is not None and meilleure_page != 0:
-            logger.info("Page %d sélectionnée (meilleure couverture, score=%.2f)",
-                        meilleure_page, meilleur_score)
-        page = doc[meilleure_page] if meilleure_page is not None else doc[0]
+        # Sélection de la page FICHE : la première page contenant l'en-tête
+        # "Tennis Club La Médullienne" (OCR rapide de l'en-tête). Par défaut,
+        # la page 0. Les pages suivantes sont des chèques / preuves de paiement.
+        page = _selectionner_page_fiche(doc)
         img = ti.rasteriser_page_pdf(page, dpi)
     elif ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"):
         from PIL import Image
@@ -379,6 +357,46 @@ def extraire_couche_bureau(texte, resultat):
     if clubs:
         resultat.set("bureau_club_cheque", clubs[0], 0.8, type_champ="bureau")
     return resultat
+
+
+MARQUEUR_FICHE = "tennis club la medullienne"
+
+
+def _selectionner_page_fiche(doc):
+    """Sélectionne la page contenant la fiche d'inscription.
+
+    Règle : la première page dont l'en-tête contient "Tennis Club La
+    Médullienne" (vérifié par OCR rapide de la zone d'en-tête, ou par la
+    couche texte si présente). Par défaut : page 0.
+
+    Les pages suivantes d'un PDF multi-pages sont ignorées : ce sont
+    typiquement des chèques / preuves de paiement scannés en complément.
+    """
+    import fitz
+    for pno in range(min(doc.page_count, 10)):
+        page = doc[pno]
+        # 1. Couche texte native (PDF rempli sur ordinateur)
+        texte = page.get_text()[:500].lower()
+        if MARQUEUR_FICHE in texte:
+            if pno != 0:
+                logger.info("Page fiche détectée en position %d (marqueur en-tête)", pno)
+            return page
+        # 2. Scan : OCR rapide de la zone d'en-tête (y 0-80 pt)
+        try:
+            clip = fitz.Rect(0, 0, page.rect.width, 80)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip)
+            import numpy as np
+            from PIL import Image
+            import io as _io
+            img = np.array(Image.open(_io.BytesIO(pix.tobytes("png"))).convert("L"))
+            texte_ocr, _ = ti.ocr_zone(img, (0, 0, img.shape[1], img.shape[0]), psm=6)
+            if MARQUEUR_FICHE in texte_ocr.lower():
+                if pno != 0:
+                    logger.info("Page fiche détectée en position %d (OCR en-tête)", pno)
+                return page
+        except Exception:
+            pass
+    return doc[0]
 
 
 def traiter_pdf_texte(fichier, doc, gabarit, resultat):

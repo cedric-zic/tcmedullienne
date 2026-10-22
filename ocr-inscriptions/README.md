@@ -159,6 +159,32 @@ Le script de collecte des réponses Forms (CSV Nextcloud) est à brancher sur le
 même ODS de revue : `pipeline_ocr.py` sait aussi ingérer un CSV de réponses
 (structure identique au JSON de sortie).
 
+### Page web d'upload (proposition)
+
+En complément du formulaire de saisie, une **page web d'upload des fiches**
+(scans/photos) permettrait de :
+
+- **Nommer la fiche automatiquement** : nom, prénom, date de naissance, email
+  demandés à l'upload → nommage `Inscription_2026_NOM_Prenom.pdf` et
+  pré-remplissage de l'ODS de revue (association adhérent + rapprochement).
+- **Confirmer l'enregistrement par mail** à l'adhérent.
+- **Zone de dépose des photos de chèques / preuves de virement** : les photos
+  sont recadrées (détection de contour) et ajoutées en pages annexes du PDF
+  de la fiche, séparées de la page 1 (fiche) pour ne pas perturber l'OCR.
+
+> Le pipeline sélectionne automatiquement la page fiche (celle avec l'en-tête
+> « Tennis Club La Médullienne ») ; les pages suivantes (chèques) sont ignorées
+> pour l'OCR des champs mais conservées dans le PDF.
+
+### Convention multi-pages
+
+Quand un PDF contient plusieurs pages (fiche + chèques scannés en preuve de
+dépôt), seule la **page fiche** est OCRisée. Détection : première page dont
+l'en-tête contient « Tennis Club La Médullienne » (couche texte ou OCR rapide
+de l'en-tête). Les pages suivantes sont ignorées pour l'extraction des champs.
+Pour la V13, un indicateur visuel en haut de la fiche facilitera cette
+détection.
+
 ## Dépendances
 
 ```bash
