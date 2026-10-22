@@ -21,3 +21,9 @@ site-web/images/sponsors/
 site-web/images/evenements/
 
 # ... sauf si tu veux versionner des modèles .ods vierges → ajuste
+# Sorties du pipeline OCR et données adhérents (jamais commitées)
+ocr-inscriptions/*.ods
+ocr-inscriptions/revue_*.json
+ocr-inscriptions/rapprochement*.json
+**/adherents*.csv
+**/extraction_*.csv
