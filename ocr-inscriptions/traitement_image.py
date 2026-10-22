@@ -27,11 +27,11 @@ DPI_LECTURE = 300  # résolution de rasterisation pour l'analyse d'image
 
 # Seuils de détection d'une case cochée (ratio de pixels sombres à l'intérieur
 # de la case, bords exclus). À calibrer sur le jeu des 361 fiches réelles.
-SEUIL_CASE_COCHEE = 0.08
-MARGE_BORD_CASE = 0.15  # fraction de la case à exclure sur chaque bord
+SEUIL_CASE_COCHEE = 0.10
+MARGE_BORD_CASE = 0.20  # fraction de la case à exclure sur chaque bord
 # Une case est cochée si son ratio dépasse le ratio médian des cases du même
 # groupe + SEUIL_RELATIF (évite les faux positifs sur cases bruitées).
-SEUIL_RELATIF = 0.05
+SEUIL_RELATIF = 0.08
 
 
 # ---------------------------------------------------------------------------
@@ -518,10 +518,43 @@ def estimer_angle(sombre, gabarit, zoom):
 # Détection de cases cochées
 # ---------------------------------------------------------------------------
 
+def _otsu(arr):
+    """Seuil d'Otsu sur un tableau de pixels (niveaux de gris 0-255)."""
+    hist, _ = np.histogram(arr.flatten(), bins=256, range=(0, 256))
+    total = arr.size
+    if total == 0:
+        return 128
+    somme_totale = float(np.sum(hist * np.arange(256)))
+    somme_b = 0.0
+    poids_b = 0
+    var_max = 0.0
+    seuil = 128
+    for t in range(256):
+        poids_b += int(hist[t])
+        if poids_b == 0:
+            continue
+        poids_f = total - poids_b
+        if poids_f == 0:
+            break
+        somme_b += t * int(hist[t])
+        moy_b = somme_b / poids_b
+        moy_f = (somme_totale - somme_b) / poids_f
+        var = poids_b * poids_f * (moy_b - moy_f) ** 2
+        if var > var_max:
+            var_max = var
+            seuil = t
+    return seuil
+
+
 def ratio_pixels_sombres(img, rect, margin=MARGE_BORD_CASE):
     """Ratio de pixels sombres à l'intérieur d'un rectangle (bords exclus).
 
     rect = (x0, y0, x1, y1) en pixels. Retourne le ratio (0..1).
+
+    Utilise un seuillage adaptatif (Otsu local) : sur les scans compressés,
+    l'encre d'une croix manuscrite peut être grise (130-180) et ne serait
+    pas détectée avec un seuil fixe à 128. Otsu sépare localement le fond
+    (papier) de l'encre (croix/texte).
     """
     x0, y0, x1, y1 = rect
     if x1 <= x0 or y1 <= y0:
@@ -531,7 +564,8 @@ def ratio_pixels_sombres(img, rect, margin=MARGE_BORD_CASE):
     interieur = img[y0 + my:y1 - my, x0 + mx:x1 - mx]
     if interieur.size == 0:
         return 0.0
-    return float(np.mean(interieur < 128))
+    seuil = _otsu(interieur)
+    return float(np.mean(interieur < seuil))
 
 
 def case_cochee(img, rect, seuil=SEUIL_CASE_COCHEE, margin=MARGE_BORD_CASE):

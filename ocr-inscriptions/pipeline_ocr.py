@@ -173,6 +173,32 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
                 f"PDF multi-pages ({doc.page_count}) : scan probablement en morceaux — "
                 "assemblage manuel nécessaire avant OCR"
             )
+        # Sélection de la MEILLEURE page : parmi toutes les pages, choisir celle
+        # dont l'image principale couvre le mieux la page (évite de prendre une
+        # page blanche ou un fragment isolé quand le PDF contient plusieurs
+        # images pleine page — ex: BANUELOS 4 pages identiques en qualité).
+        meilleure_page = None
+        meilleur_score = -1.0
+        for pno in range(doc.page_count):
+            p = doc[pno]
+            score = 0.0
+            for info in p.get_image_info(xrefs=True):
+                xref = info["xref"]
+                pix = fitz.Pixmap(doc, xref)
+                if pix.width < 500 or pix.height < 500:
+                    continue
+                bb = info["bbox"]
+                # Score = couverture de la page (0..1) × résolution
+                couv = min(1.0, (bb[2]-bb[0]) / p.rect.width) * min(1.0, (bb[3]-bb[1]) / p.rect.height)
+                resol = min(pix.width, pix.height) / 500.0
+                score = max(score, couv * resol)
+            if score > meilleur_score:
+                meilleur_score = score
+                meilleure_page = pno
+        if meilleure_page is not None and meilleure_page != 0:
+            logger.info("Page %d sélectionnée (meilleure couverture, score=%.2f)",
+                        meilleure_page, meilleur_score)
+        page = doc[meilleure_page] if meilleure_page is not None else doc[0]
         img = ti.rasteriser_page_pdf(page, dpi)
     elif ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"):
         from PIL import Image
@@ -279,11 +305,11 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
 
     # --- Formule (14 cases, une seule cochée) ---
     formules = gabarit["formules"]
-    lignes_y = formules["lignes_y"]
+    bornes_y = formules.get("bornes_y", formules["lignes_y"])
     choix_x = formules["choix_x"]
     rects = []
     for i, formule in enumerate(formules["formules"]):
-        zone = {"x": choix_x, "y": [lignes_y[i], lignes_y[i + 1]]}
+        zone = {"x": choix_x, "y": [bornes_y[i], bornes_y[i + 1]]}
         rects.append((formule["id"], recalage.zone_pixels(zone, img.shape, dpi)))
     cochees, ratios = ti.detecter_cases_groupe(img, rects)
     ratios = {nom: round(r, 3) for nom, r in ratios.items()}

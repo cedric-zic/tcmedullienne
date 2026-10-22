@@ -54,8 +54,9 @@
     }
   },
   "formules": {
-    "_comment": "14 formules, lignes du tableau entre y=357.0 et y=554.4 (pas ~14.1 pt). Colonne Choix = x 20.3-51.2 : la case a cocher est la cellule elle-meme (pas de carre imprime ; la coche/croix manuscrite remplit la cellule).",
-    "choix_x": [20.3, 51.2],
+    "_comment": "14 formules. Bornes exactes des 15 separateurs horizontaux du tableau (x 20.5-422), extraites du modele V12. Colonne Choix = entre les verticales x=20.3 et x=51.2 : pas de carre imprime, la croix manuscrite est posee dans la cellule. La zone de detection utilise l'interieur de la colonne (x 22.0-49.0) pour eviter les lignes verticales de bord.",
+    "choix_x": [22.0, 49.0],
+    "bornes_y": [356.95, 371.05, 385.15, 399.25, 413.35, 427.45, 441.55, 455.65, 469.75, 483.85, 497.95, 512.05, 526.15, 540.25, 554.35],
     "lignes_y": [357.0, 371.1, 385.2, 399.3, 413.4, 427.5, 441.6, 455.7, 469.8, 483.9, 498.0, 512.1, 526.2, 540.3, 554.4],
     "formules": [
       {"id": "baby_1h",               "nom": "Tennis Baby 1h",                              "total": 130},
