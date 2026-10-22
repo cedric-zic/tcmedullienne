@@ -27,11 +27,11 @@ DPI_LECTURE = 300  # résolution de rasterisation pour l'analyse d'image
 
 # Seuils de détection d'une case cochée (ratio de pixels sombres à l'intérieur
 # de la case, bords exclus). À calibrer sur le jeu des 361 fiches réelles.
-SEUIL_CASE_COCHEE = 0.08
-MARGE_BORD_CASE = 0.15  # fraction de la case à exclure sur chaque bord
+SEUIL_CASE_COCHEE = 0.10
+MARGE_BORD_CASE = 0.20  # fraction de la case à exclure sur chaque bord
 # Une case est cochée si son ratio dépasse le ratio médian des cases du même
 # groupe + SEUIL_RELATIF (évite les faux positifs sur cases bruitées).
-SEUIL_RELATIF = 0.05
+SEUIL_RELATIF = 0.08
 
 
 # ---------------------------------------------------------------------------
@@ -247,75 +247,219 @@ class Recalage:
         return (x0, y0, x1, y1)
 
 
+def detecter_lignes(sombre, axe=0, seuil_frac=0.4, min_px=5):
+    """Détecte les lignes horizontales (axe=0) ou verticales (axe=1) d'un
+    binaire. Retourne les positions (pixels) des centres de lignes."""
+    if axe == 0:  # horizontales
+        profil = sombre.sum(axis=1)
+        seuil = seuil_frac * sombre.shape[1]
+    else:  # verticales
+        profil = sombre.sum(axis=0)
+        seuil = seuil_frac * sombre.shape[0]
+    candidats = np.where(profil > seuil)[0]
+    groupes = []
+    if len(candidats):
+        debut = candidats[0]
+        prec = candidats[0]
+        for y in candidats[1:]:
+            if y - prec > min_px:
+                groupes.append((debut + prec) / 2.0)
+                debut = y
+            prec = y
+        groupes.append((debut + prec) / 2.0)
+    return np.array(groupes)
+
+
+def detecter_lignes_dans_zone(sombre, x0, x1, seuil_frac=0.4, min_px=5):
+    """Détecte les lignes horizontales dans une zone verticale [x0, x1]."""
+    profil = sombre[:, x0:x1].sum(axis=1)
+    seuil = seuil_frac * (x1 - x0)
+    candidats = np.where(profil > seuil)[0]
+    groupes = []
+    if len(candidats):
+        debut = candidats[0]
+        prec = candidats[0]
+        for y in candidats[1:]:
+            if y - prec > min_px:
+                groupes.append((debut + prec) / 2.0)
+                debut = y
+            prec = y
+        groupes.append((debut + prec) / 2.0)
+    return np.array(groupes)
+
+
+def appariements_lignes(lignes_detectees_pt, y_attendus_pt, fenetre_pt=30):
+    """Associe les lignes détectées aux lignes attendues (plus proche voisin
+    dans une fenêtre). Retourne [(y_attendu, y_trouve), ...]."""
+    correspondances = []
+    for y_att in y_attendus_pt:
+        if len(lignes_detectees_pt) == 0:
+            break
+        distances = np.abs(lignes_detectees_pt - y_att)
+        idx = int(np.argmin(distances))
+        if distances[idx] < fenetre_pt:
+            correspondances.append((float(y_att), float(lignes_detectees_pt[idx])))
+    return correspondances
+
+
+def estimer_homographie(sombre, gabarit, zoom, echelle_brut=1.0):
+    """Estime une homographie (correction de perspective) à partir des
+    séparateurs du tableau coordonnées.
+
+    Repère les 4 coins du tableau coordonnées (intersections des séparateurs
+    horizontaux extrêmes et verticaux extrêmes) dans le scan, et calcule la
+    transformation perspective qui les ramène aux coordonnées du gabarit.
+
+    Retourne (matrice 3x3, qualité 0..1) ou (None, 0) si échec.
+    """
+    if not opencv_disponible():
+        return None, 0.0
+    import cv2
+    h, w = sombre.shape
+    eb = echelle_brut
+    # Zone du tableau coordonnées dans le gabarit
+    x0g, x1g = 23.6, 577.0
+    y0g, y1g = 94.9, 313.3
+    # Lignes horizontales attendues (séparateurs du tableau coord)
+    y_attendus = gabarit.get("marqueurs_recalage", {}).get("y_attendus", [])
+    if len(y_attendus) < 5:
+        return None, 0.0
+    # Détecter les lignes horizontales dans le scan (zone centrale)
+    x0_px = int(0.05 * w)
+    x1_px = int(0.95 * w)
+    lignes_px = detecter_lignes_dans_zone(sombre, x0_px, x1_px, seuil_frac=0.3)
+    lignes_pt = lignes_px / (zoom * eb)
+    # Appariement
+    corresp = appariements_lignes(lignes_pt, y_attendus, fenetre_pt=40)
+    if len(corresp) < 5:
+        return None, 0.0
+    # Coins horizontaux: première et dernière ligne appariées
+    y_top_att, y_top_scan = corresp[0]
+    y_bot_att, y_bot_scan = corresp[-1]
+    # Détecter les séparateurs verticaux du tableau coordonnées dans la
+    # bande verticale correspondant au tableau
+    y_top_px = int(y_top_scan * zoom * eb)
+    y_bot_px = int(y_bot_scan * zoom * eb)
+    if y_bot_px <= y_top_px or y_bot_px > h:
+        return None, 0.0
+    # Séparateurs verticaux attendus: x=23.6 (gauche tableau), 87.9, 310.7, 368.0, 577.0 (droite)
+    x_attendus = [23.6, 577.0]  # bords du tableau
+    profil_x = sombre[y_top_px:y_bot_px, :].sum(axis=0)
+    seuil_x = 0.3 * (y_bot_px - y_top_px)
+    cols_px = np.where(profil_x > seuil_x)[0]
+    # Grouper
+    groupes_x = []
+    if len(cols_px):
+        debut = cols_px[0]; prec = cols_px[0]
+        for x in cols_px[1:]:
+            if x - prec > 5:
+                groupes_x.append((debut + prec) / 2.0)
+                debut = x
+            prec = x
+        groupes_x.append((debut + prec) / 2.0)
+    if len(groupes_x) < 2:
+        return None, 0.0
+    # Prendre le séparateur le plus à gauche et le plus à droite (bords du tableau)
+    x_gauche_px = groupes_x[0]
+    x_droite_px = groupes_x[-1]
+    # 4 coins du scan (en pixels)
+    src = np.float32([
+        [x_gauche_px, y_top_px],
+        [x_droite_px, y_top_px],
+        [x_gauche_px, y_bot_px],
+        [x_droite_px, y_bot_px],
+    ])
+    # 4 coins du gabarit (en pixels à la même échelle que le scan)
+    dst = np.float32([
+        [x0g * zoom * eb, y0g * zoom * eb],
+        [x1g * zoom * eb, y0g * zoom * eb],
+        [x0g * zoom * eb, y1g * zoom * eb],
+        [x1g * zoom * eb, y1g * zoom * eb],
+    ])
+    # Vérifier que les coins scan forment bien un quadrilatère (pas dégénéré)
+    if (x_droite_px - x_gauche_px) < 50 or (y_bot_px - y_top_px) < 50:
+        return None, 0.0
+    M = cv2.getPerspectiveTransform(src, dst)
+    # Qualité: nombre de correspondances / nombre attendu, pénalisé si peu
+    qualite = min(1.0, len(corresp) / len(y_attendus))
+    logger.info("Homographie estimée : %d/%d séparateurs, coins scan (%.0f,%.0f)-(%.0f,%.0f)",
+                len(corresp), len(y_attendus), x_gauche_px, y_top_px, x_droite_px, y_bot_px)
+    return M, qualite
+
+
+def corriger_perspective(img, M):
+    """Applique une homographie à une image (correction de perspective).
+
+    La matrice M transforme les coordonnées du gabarit (pt * zoom) vers le scan.
+    On veut l'inverse : on génère l'image corrigée en mappant chaque pixel du
+    gabarit vers le scan via M (warpPerspective avec WARP_INVERSE_MAP).
+    """
+    if not opencv_disponible():
+        return img
+    import cv2
+    h, w = img.shape[:2]
+    # Taille de sortie : le gabarit en pixels à la même échelle
+    # On garde les dimensions de l'image d'entrée (le scan couvre au moins le tableau)
+    return cv2.warpPerspective(img, M, (w, h), flags=cv2.INTER_CUBIC,
+                               borderMode=cv2.BORDER_CONSTANT, borderValue=255)
+
+
 def estimer_recalage(img, gabarit, dpi=DPI_LECTURE):
     """Estime le recalage à partir des séparateurs horizontaux du tableau
     coordonnées (lignes noires quasi pleine largeur, y attendus dans le gabarit).
 
-    Retourne un Recalage. Si aucun séparateur n'est trouvé, retourne un
-    recalage identité (fiabilité 0) — l'appelant décidera quoi faire.
+    Deux stratégies, essayées dans l'ordre :
+    1. **Détection globale + appariement** : détecte toutes les lignes
+       horizontales du scan, les apparie aux y attendus (fenêtre ±40 pt),
+       puis régression affine. Robuste aux scans décalés/zoomés.
+    2. Si < 5 appariements : retour à l'échelle brute (le scan est trop
+       dégradé ou trop décalé pour un recalage fiable).
+
+    Retourne un Recalage. La fiabilité reflète le nombre d'appariements.
     """
     recalage = Recalage()
     binaire = seuillage_adaptatif(img)
     sombre = binaire == 0
     h, w = sombre.shape
     zoom = dpi / 72.0
-    # Facteur d'échelle brut : le scan fait quelle largeur en px pour une page
-    # A4 de 595.3 pt ? Ça donne l'échelle globale même si le dpi déclaré est faux.
+    # Facteur d'échelle brut : largeur du scan en px pour une page A4 (595.3 pt)
     echelle_brut = (w / (595.3 * zoom)) if w else 1.0
     y_attendus = gabarit.get("marqueurs_recalage", {}).get("y_attendus", [])
     if not y_attendus:
         recalage.echelle = echelle_brut
         return recalage
-    # Pour chaque y attendu, chercher dans une fenêtre verticale la ligne
-    # horizontale la plus sombre (somme de pixels sombres sur la largeur).
-    # La fenêtre est exprimée en pixels via l'échelle brute.
-    fenetre = 12 * zoom * echelle_brut  # ±12 pt de tolérance
-    x0_profil = int(24 * zoom * echelle_brut)
-    x1_profil = int(577 * zoom * echelle_brut)
-    correspondances = []  # (y_attendu_pt, y_trouve_pt)
-    for y_pt in y_attendus:
-        y_centre = int(y_pt * zoom * echelle_brut)
-        y_deb = max(0, int(y_centre - fenetre))
-        y_fin = min(h, int(y_centre + fenetre))
-        if y_fin <= y_deb:
-            continue
-        profil = sombre[y_deb:y_fin, x0_profil:x1_profil].sum(axis=1)
-        # une vraie ligne de tableau = forte densité sur toute la largeur
-        seuil_ligne = 0.5 * (x1_profil - x0_profil)
-        candidats = np.where(profil > seuil_ligne)[0]
-        if len(candidats) == 0:
-            continue
-        # centre de gravité des candidats (robuste à une ligne épaisse)
-        y_trouve_px = float(np.average(candidats + y_deb, weights=profil[candidats]))
-        correspondances.append((y_pt, y_trouve_px / (zoom * echelle_brut)))
-    if len(correspondances) < 3:
-        logger.warning("Recalage : seulement %d séparateurs trouvés, échelle brute %.3f", len(correspondances), echelle_brut)
+    # Stratégie 1 : détection globale + appariement
+    x0_px = int(0.05 * w)
+    x1_px = int(0.95 * w)
+    lignes_px = detecter_lignes_dans_zone(sombre, x0_px, x1_px, seuil_frac=0.3)
+    lignes_pt = lignes_px / (zoom * echelle_brut)
+    corresp = appariements_lignes(lignes_pt, y_attendus, fenetre_pt=40)
+    if len(corresp) < 5:
+        logger.warning("Recalage : seulement %d séparateurs appariés, échelle brute %.3f", len(corresp), echelle_brut)
         recalage.echelle = echelle_brut
-        recalage.fiabilite = float(len(correspondances) / max(1, len(y_attendus)))
+        recalage.fiabilite = float(len(corresp) / max(1, len(y_attendus)))
         return recalage
-    # Régression y_trouve = a * y_attendu + b  (a = échelle affinée, b = offset pt)
-    ya = np.array([c[0] for c in correspondances])
-    yt = np.array([c[1] for c in correspondances])
+    # Régression affine y_trouve = a * y_attendu + b
+    ya = np.array([c[0] for c in corresp])
+    yt = np.array([c[1] for c in corresp])
     a, b = np.polyfit(ya, yt, 1)
-    # L'échelle horizontale vient des séparateurs verticaux du tableau formules
+    # Échelle horizontale via les séparateurs verticaux du tableau formules
     echelle_x = estimer_echelle_x(sombre, gabarit, zoom, echelle_brut)
     echelle = float((a + echelle_x) / 2.0) if echelle_x else float(a)
-    angle = estimer_angle(sombre, gabarit, zoom)
-    # Transformation finale : px = (pt + dy_pt) * echelle * zoom
-    # Depuis y_trouve = a*y_attendu + b  =>  y_attendu = (y_trouve - b)/a
-    # On veut px = y_pt * echelle * zoom, donc on exprime dy pour corriger
-    # l'offset : y_corrigé_pt = y_pt + dy_pt avec dy_pt = -b/a (approximation
-    # petits angles ; la translation est absorbée par l'échelle affinée).
     recalage.echelle = echelle
     recalage.dy_pt = float(-b / a)
     recalage.dx_pt = 0.0
-    recalage.angle_deg = float(angle)
+    recalage.angle_deg = 0.0
     residus = yt - (a * ya + b)
-    recalage.fiabilite = float(min(1.0, len(correspondances) / len(y_attendus)))
+    residu_max = float(np.max(np.abs(residus)))
+    recalage.fiabilite = float(min(1.0, len(corresp) / len(y_attendus)))
+    # Pénaliser la fiabilité si les résidus sont grands (photo déformée)
+    if residu_max > 5:
+        recalage.fiabilite *= max(0.3, 1.0 - (residu_max - 5) / 20)
     logger.info(
-        "Recalage : échelle=%.4f (brut %.3f), dy=%.1f pt, angle=%.2f°, %d/%d séparateurs (résidu max %.1f pt)",
-        recalage.echelle, echelle_brut, recalage.dy_pt, recalage.angle_deg,
-        len(correspondances), len(y_attendus), float(np.max(np.abs(residus))),
+        "Recalage : échelle=%.4f (brut %.3f), dy=%.1f pt, %d/%d séparateurs (résidu max %.1f pt)",
+        recalage.echelle, echelle_brut, recalage.dy_pt,
+        len(corresp), len(y_attendus), residu_max,
     )
     return recalage
 
@@ -374,10 +518,43 @@ def estimer_angle(sombre, gabarit, zoom):
 # Détection de cases cochées
 # ---------------------------------------------------------------------------
 
+def _otsu(arr):
+    """Seuil d'Otsu sur un tableau de pixels (niveaux de gris 0-255)."""
+    hist, _ = np.histogram(arr.flatten(), bins=256, range=(0, 256))
+    total = arr.size
+    if total == 0:
+        return 128
+    somme_totale = float(np.sum(hist * np.arange(256)))
+    somme_b = 0.0
+    poids_b = 0
+    var_max = 0.0
+    seuil = 128
+    for t in range(256):
+        poids_b += int(hist[t])
+        if poids_b == 0:
+            continue
+        poids_f = total - poids_b
+        if poids_f == 0:
+            break
+        somme_b += t * int(hist[t])
+        moy_b = somme_b / poids_b
+        moy_f = (somme_totale - somme_b) / poids_f
+        var = poids_b * poids_f * (moy_b - moy_f) ** 2
+        if var > var_max:
+            var_max = var
+            seuil = t
+    return seuil
+
+
 def ratio_pixels_sombres(img, rect, margin=MARGE_BORD_CASE):
     """Ratio de pixels sombres à l'intérieur d'un rectangle (bords exclus).
 
     rect = (x0, y0, x1, y1) en pixels. Retourne le ratio (0..1).
+
+    Utilise un seuillage adaptatif (Otsu local) : sur les scans compressés,
+    l'encre d'une croix manuscrite peut être grise (130-180) et ne serait
+    pas détectée avec un seuil fixe à 128. Otsu sépare localement le fond
+    (papier) de l'encre (croix/texte).
     """
     x0, y0, x1, y1 = rect
     if x1 <= x0 or y1 <= y0:
@@ -387,7 +564,8 @@ def ratio_pixels_sombres(img, rect, margin=MARGE_BORD_CASE):
     interieur = img[y0 + my:y1 - my, x0 + mx:x1 - mx]
     if interieur.size == 0:
         return 0.0
-    return float(np.mean(interieur < 128))
+    seuil = _otsu(interieur)
+    return float(np.mean(interieur < seuil))
 
 
 def case_cochee(img, rect, seuil=SEUIL_CASE_COCHEE, margin=MARGE_BORD_CASE):

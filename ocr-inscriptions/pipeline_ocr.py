@@ -138,13 +138,45 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
         if doc.page_count < 1:
             resultat.erreurs.append("PDF vide")
             return resultat
+        # Détection du type de PDF :
+        # 1. PDF rempli sur ordinateur (couche texte + éventuelles annotations) ;
+        # 2. PDF = scan pleine page (1 image embarquée couvrant toute la page) ;
+        # 3. PDF = assemblage de morceaux de scan (plusieurs images, souvent
+        #    tournées 90°, basse résolution) + éventuellement couche texte bureau.
         page = doc[0]
-        # Si le PDF a une couche texte (fiche remplie sur ordinateur), on
-        # l'utilise directement : c'est plus fiable que l'OCR image.
         couche_texte = page.get_text().strip()
-        if len(couche_texte) > 200:
+        images = page.get_images(full=True)
+        image_principale = None
+        for img_info in images:
+            pix = fitz.Pixmap(doc, img_info[0])
+            if pix.width > 400 and pix.height > 400:
+                image_principale = img_info
+            pix = None
+        # Vérifier si l'image couvre (approximativement) toute la page
+        couvre_page = False
+        if image_principale:
+            rects = page.get_image_rects(image_principale[0])
+            for r in rects:
+                if r.width > 0.8 * page.rect.width and r.height > 0.8 * page.rect.height:
+                    couvre_page = True
+        # Seuil de couche texte : un PDF rempli sur ordinateur a des MILLIERS
+        # de caractères (tout le texte imprimé + les réponses). 200 caractères,
+        # c'est typiquement une couche 'bureau' ajoutée sur un scan.
+        if len(couche_texte) > 1000 and not couvre_page:
             logger.info("%s : PDF avec couche texte détectée, extraction directe", os.path.basename(fichier))
             return traiter_pdf_texte(fichier, doc, gabarit, resultat)
+        if len(couche_texte) > 50:
+            # Extraire les données bureau de la couche texte (paiement, chèques...)
+            resultat = extraire_couche_bureau(couche_texte, resultat)
+        if doc.page_count > 1:
+            resultat.ajouter_alerte(
+                f"PDF multi-pages ({doc.page_count}) : pages suivantes ignorées "
+                "(probablement chèques / preuves de paiement scannés en complément)"
+            )
+        # Sélection de la page FICHE : la première page contenant l'en-tête
+        # "Tennis Club La Médullienne" (OCR rapide de l'en-tête). Par défaut,
+        # la page 0. Les pages suivantes sont des chèques / preuves de paiement.
+        page = _selectionner_page_fiche(doc)
         img = ti.rasteriser_page_pdf(page, dpi)
     elif ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"):
         from PIL import Image
@@ -163,11 +195,31 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
     # --- Prétraitement ---
     img = ti.corriger_inclinaison(img)
 
+    # --- Upsampling si le scan est basse résolution (< 200 dpi effectif) ---
+    # Les scans à 110 dpi (photos) doivent être upsamplés pour que Tesseract
+    # puisse lire le manuscrit. Facteur x3 => ~330 dpi.
+    zoom_lu = dpi / 72.0
+    largeur_pt_estimee = img.shape[1] / zoom_lu
+    dpi_effectif = img.shape[1] / (595.3 / 72.0)
+    if dpi_effectif < 200:
+        facteur = int(round(300 / max(1, dpi_effectif)))
+        if facteur > 1:
+            from PIL import Image
+            img = np.array(Image.fromarray(img).resize(
+                (img.shape[1] * facteur, img.shape[0] * facteur), Image.LANCZOS))
+            dpi = int(dpi * facteur)
+            logger.info("Upsampling x%d (%.0f dpi -> %d dpi)", facteur, dpi_effectif, dpi)
+
     # --- Recalage gabarit ↔ scan ---
     recalage = ti.estimer_recalage(img, gabarit, dpi)
     if recalage.fiabilite < 0.3:
         resultat.ajouter_alerte(
             f"Recalage faible (fiabilité {recalage.fiabilite:.0%}) — fiche à vérifier visuellement"
+        )
+    elif recalage.fiabilite < 0.7:
+        resultat.ajouter_alerte(
+            f"Recalage incertain (fiabilité {recalage.fiabilite:.0%}, résidus élevés) "
+            "— photo déformée, vérifier tous les champs"
         )
 
     # --- Sexe ---
@@ -231,11 +283,11 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
 
     # --- Formule (14 cases, une seule cochée) ---
     formules = gabarit["formules"]
-    lignes_y = formules["lignes_y"]
+    bornes_y = formules.get("bornes_y", formules["lignes_y"])
     choix_x = formules["choix_x"]
     rects = []
     for i, formule in enumerate(formules["formules"]):
-        zone = {"x": choix_x, "y": [lignes_y[i], lignes_y[i + 1]]}
+        zone = {"x": choix_x, "y": [bornes_y[i], bornes_y[i + 1]]}
         rects.append((formule["id"], recalage.zone_pixels(zone, img.shape, dpi)))
     cochees, ratios = ti.detecter_cases_groupe(img, rects)
     ratios = {nom: round(r, 3) for nom, r in ratios.items()}
@@ -270,6 +322,81 @@ def traiter_fiche(fichier, gabarit, dpi=ti.DPI_LECTURE):
     _lire_cases(img, recalage, paie["cases"], paie["y"], dpi, resultat, "moyen_paiement")
 
     return resultat
+
+
+def extraire_couche_bureau(texte, resultat):
+    """Extrait les informations de la couche texte 'bureau' d'un PDF
+    (paiement, chèques, tampons) quand la fiche elle-même est un scan.
+
+    Reconnaît : montant total, nombre de chèques, montant par chèque,
+    numéros de chèque, date de reçu, nom du club sur les chèques.
+    """
+    import re
+    lignes = [l.strip() for l in texte.splitlines() if l.strip()]
+    texte_complet = " ".join(lignes)
+    # Montant total (ex: '175')
+    m = re.search(r"(?<![\d.])(\d{2,4})(?![\d.])\s*(?:€|EUR)?\s*(?:$|Reçu)", texte_complet)
+    # Chercher plus spécifiquement: un nombre isolé suivi de 'Reçu le'
+    m_recu = re.search(r"(\d{2,4})\s*\n?\s*Reçu le (\d{2}/\d{2}/\d{4})", texte)
+    if m_recu:
+        resultat.set("bureau_montant_total", m_recu.group(1), 0.9, type_champ="bureau")
+        resultat.set("bureau_date_recu", m_recu.group(2), 0.9, type_champ="bureau")
+    # Chèques: 'N chèques de X€YY'
+    m_cheques = re.search(r"(\d+)\s*chèques?\s*de\s*(\d+)\s*€\s*(\d{2})", texte_complet)
+    if m_cheques:
+        resultat.set("bureau_nb_cheques", m_cheques.group(1), 0.9, type_champ="bureau")
+        montant = f"{m_cheques.group(2)}.{m_cheques.group(3)}"
+        resultat.set("bureau_montant_cheque", montant, 0.9, type_champ="bureau")
+        resultat.set("moyen_paiement", "Chèque", 0.9, type_champ="case")
+    # Numéros de chèque (séquence de 7 chiffres)
+    numeros = re.findall(r"\b(\d{7})\b", texte_complet)
+    if numeros:
+        resultat.set("bureau_numeros_cheques", ", ".join(numeros), 0.8, type_champ="bureau")
+    # Nom du club sur les chèques (ligne répétée)
+    clubs = re.findall(r"(CMSO\s*/\s*[A-Z\-]+)", texte_complet)
+    if clubs:
+        resultat.set("bureau_club_cheque", clubs[0], 0.8, type_champ="bureau")
+    return resultat
+
+
+MARQUEUR_FICHE = "tennis club la medullienne"
+
+
+def _selectionner_page_fiche(doc):
+    """Sélectionne la page contenant la fiche d'inscription.
+
+    Règle : la première page dont l'en-tête contient "Tennis Club La
+    Médullienne" (vérifié par OCR rapide de la zone d'en-tête, ou par la
+    couche texte si présente). Par défaut : page 0.
+
+    Les pages suivantes d'un PDF multi-pages sont ignorées : ce sont
+    typiquement des chèques / preuves de paiement scannés en complément.
+    """
+    import fitz
+    for pno in range(min(doc.page_count, 10)):
+        page = doc[pno]
+        # 1. Couche texte native (PDF rempli sur ordinateur)
+        texte = page.get_text()[:500].lower()
+        if MARQUEUR_FICHE in texte:
+            if pno != 0:
+                logger.info("Page fiche détectée en position %d (marqueur en-tête)", pno)
+            return page
+        # 2. Scan : OCR rapide de la zone d'en-tête (y 0-80 pt)
+        try:
+            clip = fitz.Rect(0, 0, page.rect.width, 80)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip)
+            import numpy as np
+            from PIL import Image
+            import io as _io
+            img = np.array(Image.open(_io.BytesIO(pix.tobytes("png"))).convert("L"))
+            texte_ocr, _ = ti.ocr_zone(img, (0, 0, img.shape[1], img.shape[0]), psm=6)
+            if MARQUEUR_FICHE in texte_ocr.lower():
+                if pno != 0:
+                    logger.info("Page fiche détectée en position %d (OCR en-tête)", pno)
+                return page
+        except Exception:
+            pass
+    return doc[0]
 
 
 def traiter_pdf_texte(fichier, doc, gabarit, resultat):
@@ -352,7 +479,8 @@ COLONNES_REVUE = [
     "Rep. Nom", "Rep. Prénom", "Rep. Téléphone", "Rep. Email",
     "Formule", "Montant total (€)",
     "Dispo Lundi", "Dispo Mardi", "Dispo Mercredi", "Dispo Jeudi", "Dispo Vendredi", "Dispo Samedi",
-    "Moyen paiement", "Confiance globale", "Alertes", "Statut revue", "Commentaire",
+    "Moyen paiement", "Montant bureau", "Date reçu", "N° chèques",
+    "Confiance globale", "Alertes", "Statut revue", "Commentaire",
 ]
 
 
@@ -381,6 +509,7 @@ def exporter_revue_ods(resultats, chemin_sortie):
             val("dispo_lundi"), val("dispo_mardi"), val("dispo_mercredi"),
             val("dispo_jeudi"), val("dispo_vendredi"), val("dispo_samedi"),
             val("moyen_paiement"),
+            val("bureau_montant_total"), val("bureau_date_recu"), val("bureau_numeros_cheques"),
             f"{res.score_global():.0%}",
             "; ".join(res.alertes) if res.alertes else "",
             "À vérifier" if res.alertes else "",
