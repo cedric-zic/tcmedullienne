@@ -196,31 +196,71 @@ def corriger_inclinaison(img):
 # ---------------------------------------------------------------------------
 
 class Recalage:
-    """Transformation affine (échelle X/Y indépendante + translation + rotation)
-    estimée à partir des séparateurs du formulaire (horizontaux et verticaux).
+    """Recalage gabarit → scan, avec interpolation par morceaux (piecewise linear).
 
-    Contrairement à l'ancienne version (échelle uniforme), on estime ici une
-    échelle indépendante en X et en Y : les scans peuvent avoir un léger
-    anamorphose (écrasement horizontal ou vertical), et les zones de saisie
-    (texte manuscrit) sont sensibles à quelques points près.
+    Stratégie à deux niveaux :
+    1. **Affine global** (échelle X/Y + translation) : robuste, sert de base.
+    2. **Interpolation par morceaux** : à partir des appariements séparateurs
+       (y_gabarit ↔ y_scan), on interpole linéairement entre les points
+       appariés. Cela corrige les micro-déformations locales (papier gondolé,
+       scan non uniforme) qu'un modèle affine global ne peut pas capturer.
+
+    Le recalage X (horizontal) reste affine — les séparateurs verticaux sont
+    moins nombreux et la déformation horizontale est généralement négligeable.
     """
 
     def __init__(self):
         self.angle_deg = 0.0
         self.dx_pt = 0.0
         self.dy_pt = 0.0
-        self.echelle = 1.0      # échelle Y (rétro-compatibilité)
-        self.echelle_x = 1.0    # échelle horizontale
+        self.echelle = 1.0      # échelle Y affine (rétro-compatibilité)
+        self.echelle_x = 1.0    # échelle horizontale affine
         self.fiabilite = 0.0    # 0..1, proportion de séparateurs retrouvés
+        # Interpolation par morceaux en Y : tableaux triés par y_gabarit croissant.
+        # None = pas d'interpolation (mode affine pur).
+        self._interp_y_gab = None   # y gabarit (pt)
+        self._interp_y_px = None    # y scan (pixels) — STOCKÉ EN PIXELS DIRECTEMENT
+
+    def definir_interpolation_y(self, appariements_y_px):
+        """Définit l'interpolation par morceaux en Y à partir des appariements.
+
+        appariements_y_px : liste de (y_gabarit_pt, y_scan_px) — positions des
+        séparateurs dans le gabarit (pt) et dans le scan (pixels).
+        """
+        if len(appariements_y_px) < 2:
+            return
+        app = sorted(appariements_y_px, key=lambda c: c[0])
+        self._interp_y_gab = np.array([c[0] for c in app], dtype=float)
+        self._interp_y_px = np.array([c[1] for c in app], dtype=float)
+        logger.info("Recalage: interpolation Y par morceaux sur %d points (%.0f-%.0f pt)",
+                    len(app), self._interp_y_gab[0], self._interp_y_gab[-1])
 
     def vers_pixels(self, x_pt, y_pt, img_shape, dpi=DPI_LECTURE):
         """Convertit un point du gabarit (pt) en pixel de l'image, après recalage.
 
-        px = pt * zoom * echelle + translation_pt * zoom
+        Y : interpolation par morceaux si disponible, sinon affine.
+        X : affine (échelle + translation).
         """
         zoom = dpi / 72.0
+        # --- X : affine ---
         x = x_pt * zoom * self.echelle_x + self.dx_pt * zoom
-        y = y_pt * zoom * self.echelle + self.dy_pt * zoom
+        # --- Y : interpolation par morceaux (en px) ou affine ---
+        if self._interp_y_gab is not None and len(self._interp_y_gab) >= 2:
+            yg = self._interp_y_gab
+            yp = self._interp_y_px
+            if yg[0] <= y_pt <= yg[-1]:
+                idx = int(np.searchsorted(yg, y_pt))
+                if idx < len(yg) and abs(yg[idx] - y_pt) < 0.01:
+                    y = float(yp[idx])  # point exact
+                else:
+                    y0, y1 = yg[idx - 1], yg[idx]
+                    p0, p1 = yp[idx - 1], yp[idx]
+                    t = (y_pt - y0) / (y1 - y0)
+                    y = float(p0 + t * (p1 - p0))
+            else:
+                y = y_pt * zoom * self.echelle + self.dy_pt * zoom  # extrapolation affine
+        else:
+            y = y_pt * zoom * self.echelle + self.dy_pt * zoom
         # rotation autour du centre de l'image
         h, w = img_shape[:2]
         cx, cy = w / 2.0, h / 2.0
@@ -712,6 +752,13 @@ def estimer_recalage(img, gabarit, dpi=DPI_LECTURE):
         echelle_y = a * echelle_brut
         dy_pt = b * echelle_brut
         n_y = int(masque_ok.sum())
+        # Interpolation par morceaux Y sur les inliers de la régression robuste.
+        # yt est en "pt scan" (= px / (zoom * echelle_brut)) → convertir en px.
+        appariements_y_px = [
+            (float(ya[i]), float(yt[i]) * zoom * echelle_brut)
+            for i in range(len(ya)) if masque_ok[i]
+        ]
+        recalage.definir_interpolation_y(appariements_y_px)
     else:
         logger.warning("Recalage Y : seulement %d séparateurs appariés", score_y)
         echelle_y = e_y * echelle_brut
