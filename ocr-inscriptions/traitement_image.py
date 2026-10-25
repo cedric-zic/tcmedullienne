@@ -196,26 +196,30 @@ def corriger_inclinaison(img):
 # ---------------------------------------------------------------------------
 
 class Recalage:
-    """Transformation affine simple (rotation + translation + échelle uniforme)
-    estimée à partir des séparateurs horizontaux du tableau coordonnées."""
+    """Transformation affine (échelle X/Y indépendante + translation + rotation)
+    estimée à partir des séparateurs du formulaire (horizontaux et verticaux).
+
+    Contrairement à l'ancienne version (échelle uniforme), on estime ici une
+    échelle indépendante en X et en Y : les scans peuvent avoir un léger
+    anamorphose (écrasement horizontal ou vertical), et les zones de saisie
+    (texte manuscrit) sont sensibles à quelques points près.
+    """
 
     def __init__(self):
         self.angle_deg = 0.0
         self.dx_pt = 0.0
         self.dy_pt = 0.0
-        self.echelle = 1.0
-        self.fiabilite = 0.0  # 0..1, proportion de séparateurs retrouvés
+        self.echelle = 1.0      # échelle Y (rétro-compatibilité)
+        self.echelle_x = 1.0    # échelle horizontale
+        self.fiabilite = 0.0    # 0..1, proportion de séparateurs retrouvés
 
     def vers_pixels(self, x_pt, y_pt, img_shape, dpi=DPI_LECTURE):
         """Convertit un point du gabarit (pt) en pixel de l'image, après recalage.
 
-        Le recalage exprime : px = pt * zoom * echelle + translation_px.
-        L'échelle et la translation sont estimées sur les séparateurs du
-        gabarit, donc le dpi nominal passé ici n'a d'importance que comme
-        référence de départ (il est absorbé par l'échelle).
+        px = pt * zoom * echelle + translation_pt * zoom
         """
         zoom = dpi / 72.0
-        x = x_pt * zoom * self.echelle + self.dx_pt * zoom
+        x = x_pt * zoom * self.echelle_x + self.dx_pt * zoom
         y = y_pt * zoom * self.echelle + self.dy_pt * zoom
         # rotation autour du centre de l'image
         h, w = img_shape[:2]
@@ -289,17 +293,97 @@ def detecter_lignes_dans_zone(sombre, x0, x1, seuil_frac=0.4, min_px=5):
 
 
 def appariements_lignes(lignes_detectees_pt, y_attendus_pt, fenetre_pt=30):
-    """Associe les lignes détectées aux lignes attendues (plus proche voisin
-    dans une fenêtre). Retourne [(y_attendu, y_trouve), ...]."""
-    correspondances = []
-    for y_att in y_attendus_pt:
-        if len(lignes_detectees_pt) == 0:
+    """Appariement one-to-one monotone entre lignes attendues et détectées.
+
+    Contrairement à un plus-proche-voisin glouton (qui peut apparier
+    plusieurs lignes attendues à la MÊME ligne détectée, produisant une
+    régression absurde), on cherche ici l'appariement de coût minimal sous
+    contraintes :
+    - une ligne détectée est appariée à AU PLUS UNE ligne attendue ;
+    - l'ordre est conservé (appariement monotone, les deux listes sont triées) ;
+    - on peut sauter une ligne attendue (coût fixe, marqueur non retrouvé) ou
+      une ligne détectée (gratuit — ligne parasite : texte, sous-tableau...).
+
+    Algorithme : programmation dynamique en O(n_attendus × n_détectées),
+    sans dépendance externe (numpy seul).
+
+    Retourne [(y_attendu, y_trouve), ...] trié par y_attendu croissant.
+    """
+    att = np.asarray(y_attendus_pt, dtype=float)
+    det = np.sort(np.asarray(lignes_detectees_pt, dtype=float))
+    n, m = len(att), len(det)
+    if n == 0 or m == 0:
+        return []
+    BIG = 1e9
+    # Pénalise un marqueur attendu non retrouvé : assez cher pour éviter les
+    # appariements forcés à la limite de la fenêtre, assez faible pour tolérer
+    # un séparateur effacé sur le scan.
+    cout_saut_attendu = fenetre_pt * 0.5
+    # dp[i][j] = coût minimal pour apparier att[:i] avec det[:j]
+    dp = np.full((n + 1, m + 1), BIG)
+    # 0 = sauter det[j-1], 1 = sauter att[i-1], 2 = apparier att[i-1]↔det[j-1]
+    choix = np.zeros((n + 1, m + 1), dtype=np.int8)
+    dp[0, :] = 0.0  # aucune attendue : toutes les détectées sautées gratuitement
+    for i in range(1, n + 1):
+        dp[i, 0] = dp[i - 1, 0] + cout_saut_attendu
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            c_saut_det = dp[i][j - 1]
+            c_saut_att = dp[i - 1][j] + cout_saut_attendu
+            diff = abs(det[j - 1] - att[i - 1])
+            c_apparier = dp[i - 1][j - 1] + (diff if diff < fenetre_pt else BIG)
+            if c_saut_det <= c_saut_att and c_saut_det <= c_apparier:
+                dp[i][j], choix[i][j] = c_saut_det, 0
+            elif c_saut_att <= c_apparier:
+                dp[i][j], choix[i][j] = c_saut_att, 1
+            else:
+                dp[i][j], choix[i][j] = c_apparier, 2
+    # Reconstitution du chemin optimal
+    corresp = []
+    i, j = n, m
+    while i > 0 and j > 0:
+        c = choix[i][j]
+        if c == 2:
+            corresp.append((float(att[i - 1]), float(det[j - 1])))
+            i -= 1
+            j -= 1
+        elif c == 1:
+            i -= 1
+        else:
+            j -= 1
+    # Si on a épuisé les détectées (j=0) mais qu'il reste des attendues,
+    # elles sont sautées (non appariées) — on s'arrête.
+    corresp.reverse()
+    return corresp
+
+
+def _regression_robuste(ya, yt, seuil_outlier_pt=6.0, max_iter=3):
+    """Régression affine y_trouve = a * y_attendu + b avec rejet des outliers.
+
+    Itère : régression sur les points courants, rejet des points dont le
+    résidu dépasse max(seuil_outlier_pt, médiane + 3×MAD robuste), réestime.
+    Retourne (a, b, masque_conservés, résidu_max_sur_conservés).
+    """
+    masque = np.ones(len(ya), dtype=bool)
+    a = b = 0.0
+    for _ in range(max_iter):
+        if masque.sum() < 2:
             break
-        distances = np.abs(lignes_detectees_pt - y_att)
-        idx = int(np.argmin(distances))
-        if distances[idx] < fenetre_pt:
-            correspondances.append((float(y_att), float(lignes_detectees_pt[idx])))
-    return correspondances
+        a, b = np.polyfit(ya[masque], yt[masque], 1)
+        residus = np.abs(yt - (a * ya + b))
+        residus_in = residus[masque]
+        med = float(np.median(residus_in))
+        mad = float(np.median(np.abs(residus_in - med)))
+        seuil = max(seuil_outlier_pt, med + 3.0 * 1.4826 * mad)
+        nouveau = residus < seuil
+        if nouveau.sum() < 2:
+            break
+        if np.array_equal(nouveau, masque):
+            break
+        masque = nouveau
+    residus = np.abs(yt - (a * ya + b))
+    residu_max = float(np.max(residus[masque])) if masque.sum() else 0.0
+    return float(a), float(b), masque, residu_max
 
 
 def estimer_homographie(sombre, gabarit, zoom, echelle_brut=1.0):
@@ -404,18 +488,200 @@ def corriger_perspective(img, M):
                                borderMode=cv2.BORDER_CONSTANT, borderValue=255)
 
 
+def _detecter_separateurs(sombre, gabarit, zoom, echelle_brut):
+    """Détecte les séparateurs horizontaux et verticaux dans le scan.
+
+    Retourne (lignes_h_pt, lignes_v_pt, profil_y, profil_x) où les positions
+    sont en points du gabarit (divisées par zoom*echelle_brut).
+    """
+    h, w = sombre.shape
+    # --- Séparateurs horizontaux ---
+    x0_px = int(0.05 * w)
+    x1_px = int(0.95 * w)
+    lignes_h_px = detecter_lignes_dans_zone(sombre, x0_px, x1_px, seuil_frac=0.15, min_px=3)
+    lignes_h_pt = lignes_h_px / (zoom * echelle_brut)
+    # --- Séparateurs verticaux ---
+    # On détecte dans les zones verticales correspondant aux tableaux
+    # coordonnées (y 95-313) et formules (y 340-554).
+    seps_v = gabarit.get("marqueurs_recalage", {}).get("separateurs_verticaux", [])
+    lignes_v_pt = np.array([])
+    if seps_v:
+        # Prendre l'étendue Y du tableau (min y0, max y1 des séparateurs verticaux)
+        y_min_g = min(s.get("y0", 95) for s in seps_v)
+        y_max_g = max(s.get("y1", 554) for s in seps_v)
+        y0_px = max(0, int(y_min_g * zoom * echelle_brut) - int(5 * zoom))
+        y1_px = min(h, int(y_max_g * zoom * echelle_brut) + int(5 * zoom))
+        if y1_px > y0_px:
+            profil_x = sombre[y0_px:y1_px, :].sum(axis=0)
+            # Seuil adaptatif : au moins 25% de la hauteur de la zone
+            seuil_x = 0.25 * (y1_px - y0_px)
+            cols_px = np.where(profil_x > seuil_x)[0]
+            groupes = []
+            if len(cols_px):
+                debut = cols_px[0]; prec = cols_px[0]
+                for x in cols_px[1:]:
+                    if x - prec > 3:
+                        groupes.append((debut + prec) / 2.0)
+                        debut = x
+                    prec = x
+                groupes.append((debut + prec) / 2.0)
+            lignes_v_pt = np.array(groupes) / (zoom * echelle_brut) if groupes else np.array([])
+    profil_y = sombre.sum(axis=1)
+    profil_x = sombre.sum(axis=0)
+    return lignes_h_pt, lignes_v_pt, profil_y, profil_x
+
+
+def _meilleure_transfo_1d(pics_pt, attendus_pt, tol_pt=4.0, echelle_min=0.80, echelle_max=1.25):
+    """Trouve la meilleure transformation affine pos_scan = echelle * pos_gabarit + d
+    qui apparie le plus de marqueurs attendus aux pics détectés.
+
+    Stratégie par **transformée de Hough généralisée 1D** :
+    1. Pour chaque paire de pics (j, k) et chaque paire d'attendus (i, l),
+       calculer l'hypothèse (e, d) et voter dans un accumulateur 2D.
+    2. Le pic de l'accumulateur donne l'hypothèse avec le plus de votes.
+    3. Raffiner par grille fine puis régression robuste sur les inliers.
+
+    Déterministe, sans aléatoire. Retourne (score, echelle, d, appariements).
+    """
+    attendus = np.asarray(attendus_pt, dtype=float)
+    pics = np.sort(np.asarray(pics_pt, dtype=float))
+    n_att, n_pic = len(attendus), len(pics)
+    if n_att < 2 or n_pic < 2:
+        return 0, 1.0, 0.0, []
+    span_att = attendus[-1] - attendus[0]
+    if span_att <= 0:
+        return 0, 1.0, 0.0, []
+
+    def evaluer(e, d):
+        """Score = nombre d'attendus avec un pic à ±tol_pt (one-to-one)."""
+        pred = attendus * e + d
+        ordre = np.argsort(pred)
+        pred_triees = pred[ordre]
+        utilises = np.zeros(len(pics), dtype=bool)
+        inliers = []
+        for k in range(len(pred_triees)):
+            p = pred_triees[k]
+            idx = int(np.searchsorted(pics, p))
+            meilleur_idx = -1
+            meilleur_dist = tol_pt
+            for j in (idx - 1, idx):
+                if 0 <= j < len(pics) and not utilises[j]:
+                    dist = abs(pics[j] - p)
+                    if dist < meilleur_dist:
+                        meilleur_dist = dist
+                        meilleur_idx = j
+            if meilleur_idx >= 0:
+                utilises[meilleur_idx] = True
+                idx_att = ordre[k]
+                inliers.append((float(attendus[idx_att]), float(pics[meilleur_idx])))
+        return len(inliers), inliers
+
+    # --- Transformée de Hough ---
+    e_bins = np.linspace(echelle_min, echelle_max, 91)
+    d_range = max(abs(pics[0]), abs(pics[-1])) + span_att * echelle_max + 10
+    d_bins = np.linspace(-d_range, d_range, 241)
+    acc = np.zeros((len(e_bins), len(d_bins)), dtype=np.int32)
+    # Paires d'attendus avec différence significative
+    att_diffs = []
+    for i in range(n_att):
+        for l in range(i + 1, n_att):
+            da = attendus[i] - attendus[l]
+            if abs(da) >= 5:
+                att_diffs.append((i, l, da))
+    # Vote: pour chaque paire de pics × paire d'attendus
+    for j in range(n_pic):
+        for k in range(j + 1, n_pic):
+            dp = pics[j] - pics[k]
+            for i, l, da in att_diffs:
+                e = dp / da
+                if not (echelle_min < e < echelle_max):
+                    continue
+                d = pics[j] - attendus[i] * e
+                if abs(d) > d_range:
+                    continue
+                ei = int(np.searchsorted(e_bins, e))
+                di = int(np.searchsorted(d_bins, d))
+                if 0 <= ei < len(e_bins) and 0 <= di < len(d_bins):
+                    acc[ei, di] += 1
+    if acc.max() < 2:
+        return 0, 1.0, 0.0, []
+    idx = np.unravel_index(np.argmax(acc), acc.shape)
+    best_e = float((e_bins[min(idx[0] + 1, len(e_bins) - 1)] + e_bins[idx[0]]) / 2)
+    best_d = float((d_bins[min(idx[1] + 1, len(d_bins) - 1)] + d_bins[idx[1]]) / 2)
+    # --- Raffinement : top-K pics Hough + grille fine ---
+    best_score, best_inliers = evaluer(best_e, best_d)
+    # Prendre les K meilleurs pics de l'accumulateur (hors voisinage immédiat)
+    flat_acc = acc.flatten()
+    top_indices = np.argsort(flat_acc)[::-1]
+    K = 10
+    vus = []
+    for fi in top_indices:
+        if flat_acc[fi] < 2:
+            break
+        ei, di = np.unravel_index(fi, acc.shape)
+        e_c = float((e_bins[min(ei + 1, len(e_bins) - 1)] + e_bins[ei]) / 2)
+        d_c = float((d_bins[min(di + 1, len(d_bins) - 1)] + d_bins[di]) / 2)
+        # Ignorer si trop proche d'un candidat déjà vu
+        if any(abs(e_c - e_v) < 0.005 and abs(d_c - d_v) < tol_pt for e_v, d_v in vus):
+            continue
+        vus.append((e_c, d_c))
+        if len(vus) >= K:
+            break
+    # Raffiner chaque candidat par grille fine
+    for e_c, d_c in vus:
+        score_c, inl_c = evaluer(e_c, d_c)
+        if score_c > best_score:
+            best_score, best_e, best_d, best_inliers = score_c, e_c, d_c, inl_c
+        for e_f in np.linspace(max(echelle_min, e_c - 0.01), min(echelle_max, e_c + 0.01), 11):
+            for d_f in np.linspace(d_c - tol_pt, d_c + tol_pt, 11):
+                score, inliers = evaluer(float(e_f), float(d_f))
+                if score > best_score:
+                    best_score = score
+                    best_e = float(e_f)
+                    best_d = float(d_f)
+                    best_inliers = inliers
+    if best_score < 2:
+        return 0, 1.0, 0.0, []
+    # --- Régression robuste sur les inliers ---
+    for _ in range(3):
+        if len(best_inliers) < 2:
+            break
+        ya = np.array([c[0] for c in best_inliers])
+        yt = np.array([c[1] for c in best_inliers])
+        a, b, masque, _ = _regression_robuste(ya, yt)
+        if not (echelle_min < a < echelle_max):
+            break
+        score, inliers = evaluer(a, b)
+        if score >= best_score:
+            best_score = score
+            best_e = float(a)
+            best_d = float(b)
+            best_inliers = inliers
+        else:
+            break
+    if len(best_inliers) >= 2:
+        ya = np.array([c[0] for c in best_inliers])
+        yt = np.array([c[1] for c in best_inliers])
+        a, b, masque, _ = _regression_robuste(ya, yt)
+        if echelle_min < a < echelle_max:
+            appariements_finaux = [
+                (float(ya[i]), float(yt[i])) for i in range(len(ya)) if masque[i]
+            ]
+            return len(appariements_finaux), float(a), float(b), appariements_finaux
+    return best_score, best_e, best_d, best_inliers
+
 def estimer_recalage(img, gabarit, dpi=DPI_LECTURE):
-    """Estime le recalage à partir des séparateurs horizontaux du tableau
-    coordonnées (lignes noires quasi pleine largeur, y attendus dans le gabarit).
+    """Estime le recalage affine (échelle X/Y + translation) à partir des
+    séparateurs horizontaux et verticaux du formulaire.
 
-    Deux stratégies, essayées dans l'ordre :
-    1. **Détection globale + appariement** : détecte toutes les lignes
-       horizontales du scan, les apparie aux y attendus (fenêtre ±40 pt),
-       puis régression affine. Robuste aux scans décalés/zoomés.
-    2. Si < 5 appariements : retour à l'échelle brute (le scan est trop
-       dégradé ou trop décalé pour un recalage fiable).
+    Stratégie :
+    1. Détecter tous les séparateurs horizontaux (lignes pleine largeur) et
+       verticaux (colonnes pleine hauteur des tableaux) dans le scan.
+    2. Pour chaque axe, chercher la meilleure transformation affine
+       pos_scan = echelle * pos_gabarit + d qui apparie le plus de marqueurs.
+    3. Raffiner par régression robuste sur les appariements trouvés.
 
-    Retourne un Recalage. La fiabilité reflète le nombre d'appariements.
+    Retourne un Recalage avec échelle X et Y indépendantes.
     """
     recalage = Recalage()
     binaire = seuillage_adaptatif(img)
@@ -424,42 +690,78 @@ def estimer_recalage(img, gabarit, dpi=DPI_LECTURE):
     zoom = dpi / 72.0
     # Facteur d'échelle brut : largeur du scan en px pour une page A4 (595.3 pt)
     echelle_brut = (w / (595.3 * zoom)) if w else 1.0
-    y_attendus = gabarit.get("marqueurs_recalage", {}).get("y_attendus", [])
+    marqueurs = gabarit.get("marqueurs_recalage", {})
+    y_attendus = marqueurs.get("y_attendus", [])
+    seps_v = marqueurs.get("separateurs_verticaux", [])
+    x_attendus = [s["x"] for s in seps_v] if seps_v else []
     if not y_attendus:
         recalage.echelle = echelle_brut
+        recalage.echelle_x = echelle_brut
         return recalage
-    # Stratégie 1 : détection globale + appariement
-    x0_px = int(0.05 * w)
-    x1_px = int(0.95 * w)
-    lignes_px = detecter_lignes_dans_zone(sombre, x0_px, x1_px, seuil_frac=0.3)
-    lignes_pt = lignes_px / (zoom * echelle_brut)
-    corresp = appariements_lignes(lignes_pt, y_attendus, fenetre_pt=40)
-    if len(corresp) < 5:
-        logger.warning("Recalage : seulement %d séparateurs appariés, échelle brute %.3f", len(corresp), echelle_brut)
-        recalage.echelle = echelle_brut
-        recalage.fiabilite = float(len(corresp) / max(1, len(y_attendus)))
-        return recalage
-    # Régression affine y_trouve = a * y_attendu + b
-    ya = np.array([c[0] for c in corresp])
-    yt = np.array([c[1] for c in corresp])
-    a, b = np.polyfit(ya, yt, 1)
-    # Échelle horizontale via les séparateurs verticaux du tableau formules
-    echelle_x = estimer_echelle_x(sombre, gabarit, zoom, echelle_brut)
-    echelle = float((a + echelle_x) / 2.0) if echelle_x else float(a)
-    recalage.echelle = echelle
-    recalage.dy_pt = float(-b / a)
-    recalage.dx_pt = 0.0
+
+    # --- Détection des séparateurs ---
+    lignes_h_pt, lignes_v_pt, profil_y, profil_x = _detecter_separateurs(
+        sombre, gabarit, zoom, echelle_brut)
+
+    # --- Axe Y : séparateurs horizontaux ---
+    score_y, e_y, d_y, corresp_y = _meilleure_transfo_1d(lignes_h_pt, y_attendus, tol_pt=4.0)
+    if score_y >= 5 and corresp_y:
+        ya = np.array([c[0] for c in corresp_y])
+        yt = np.array([c[1] for c in corresp_y])
+        a, b, masque_ok, residu_max = _regression_robuste(ya, yt)
+        echelle_y = a * echelle_brut
+        dy_pt = b * echelle_brut
+        n_y = int(masque_ok.sum())
+    else:
+        logger.warning("Recalage Y : seulement %d séparateurs appariés", score_y)
+        echelle_y = e_y * echelle_brut
+        dy_pt = d_y * echelle_brut
+        residu_max = 999.0
+        n_y = score_y
+
+    # --- Axe X : séparateurs verticaux ---
+    score_x = 0
+    echelle_x = echelle_y  # fallback
+    dx_pt = 0.0
+    residu_max_x = 0.0
+    n_x = 0
+    if x_attendus and len(lignes_v_pt) >= 3:
+        score_x, e_x, d_x, corresp_x = _meilleure_transfo_1d(lignes_v_pt, x_attendus, tol_pt=4.0)
+        if score_x >= 4 and corresp_x:
+            xa = np.array([c[0] for c in corresp_x])
+            xt = np.array([c[1] for c in corresp_x])
+            ax, bx, masque_ok_x, residu_max_x = _regression_robuste(xa, xt)
+            echelle_x = ax * echelle_brut
+            dx_pt = bx * echelle_brut
+            n_x = int(masque_ok_x.sum())
+        else:
+            echelle_x = e_x * echelle_brut
+            dx_pt = d_x * echelle_brut
+            n_x = score_x
+    else:
+        dx_pt = 0.0
+
+    # --- Assemblage ---
+    recalage.echelle = float(echelle_y)
+    recalage.echelle_x = float(echelle_x)
+    recalage.dy_pt = float(dy_pt)
+    recalage.dx_pt = float(dx_pt)
     recalage.angle_deg = 0.0
-    residus = yt - (a * ya + b)
-    residu_max = float(np.max(np.abs(residus)))
-    recalage.fiabilite = float(min(1.0, len(corresp) / len(y_attendus)))
-    # Pénaliser la fiabilité si les résidus sont grands (photo déformée)
-    if residu_max > 5:
-        recalage.fiabilite *= max(0.3, 1.0 - (residu_max - 5) / 20)
+
+    # Fiabilité = proportion de séparateurs retrouvés (moyenne X et Y)
+    total_attendus = len(y_attendus) + len(x_attendus)
+    total_trouves = n_y + n_x
+    recalage.fiabilite = float(min(1.0, total_trouves / max(1, total_attendus)))
+    # Pénaliser si résidus élevés (photo déformée)
+    residu_global = max(residu_max, residu_max_x)
+    if residu_global > 5:
+        recalage.fiabilite *= max(0.3, 1.0 - (residu_global - 5) / 20)
+
     logger.info(
-        "Recalage : échelle=%.4f (brut %.3f), dy=%.1f pt, %d/%d séparateurs (résidu max %.1f pt)",
-        recalage.echelle, echelle_brut, recalage.dy_pt,
-        len(corresp), len(y_attendus), residu_max,
+        "Recalage : echelle_x=%.4f echelle_y=%.4f (brut %.3f), dx=%.1f dy=%.1f pt, "
+        "%d/%d sep. H + %d/%d sep. V (résidu max %.1f pt)",
+        echelle_x, echelle_y, echelle_brut, dx_pt, dy_pt,
+        n_y, len(y_attendus), n_x, len(x_attendus), residu_global,
     )
     return recalage
 
