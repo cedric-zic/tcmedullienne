@@ -1,104 +1,905 @@
 {
   "_comment": "Gabarit OCR de la fiche d'inscription V12 (2026-2027). Toutes les zones sont en points PDF (origine haut-gauche, page A4 595.3 x 841.9 pt), zone de la PAGE 1 uniquement. Les coordonnees ont ete extraites du modele vierge ; sur une fiche remplie (scan/photo), une marge de tolerance et un recentrage par marqueurs sont appliques (voir pipeline_ocr.py).",
-  "page": {"width": 595.3, "height": 841.9, "dpi_cible": 300},
+  "page": {
+    "width": 595.3,
+    "height": 841.9,
+    "dpi_cible": 300
+  },
   "marqueurs_recalage": {
-    "_comment": "Lignes du tableau des coordonnees (separateurs horizontaux pleine largeur) utilisees pour recaler verticalement un scan legèrement decale/incline.",
-    "y_attendus": [94.9, 109.3, 123.5, 140.5, 157.5, 178.7, 207.1, 224.1, 241.1, 258.1, 275.1, 292.1, 313.3]
+    "_comment": "Séparateurs du formulaire V12 extraits du PDF modèle. Utilisés pour le recalage affine (échelle + translation) du scan sur le gabarit. Les séparateurs horizontaux couvrent le tableau coordonnées (13) et le tableau formules (15). Les séparateurs verticaux couvrent les deux tableaux.",
+    "y_attendus": [
+      94.9,
+      109.3,
+      123.5,
+      140.5,
+      157.5,
+      178.7,
+      207.1,
+      224.1,
+      241.1,
+      258.1,
+      275.1,
+      292.1,
+      313.3,
+      335.6,
+      340.0,
+      357.0,
+      359.1,
+      371.1,
+      376.8,
+      385.2,
+      394.4,
+      399.3,
+      412.1,
+      413.4,
+      427.5,
+      429.7,
+      441.6,
+      447.4,
+      455.7,
+      465.0,
+      469.8,
+      482.7,
+      483.9,
+      498.0,
+      512.1,
+      526.2,
+      540.3,
+      554.4,
+      594.0,
+      606.5,
+      621.8,
+      623.6,
+      637.1,
+      641.2,
+      652.4,
+      658.9,
+      667.7,
+      675.2,
+      676.5,
+      690.2,
+      694.2,
+      704.4,
+      711.8,
+      729.5,
+      747.1,
+      764.8,
+      783.2,
+      801.6
+    ],
+    "separateurs_verticaux": [
+      {
+        "x": 20.3,
+        "y0": 339.7,
+        "y1": 554.6
+      },
+      {
+        "x": 23.6,
+        "y0": 94.7,
+        "y1": 313.4
+      },
+      {
+        "x": 25.2,
+        "y0": 606.2,
+        "y1": 667.9
+      },
+      {
+        "x": 51.2,
+        "y0": 340.2,
+        "y1": 554.1
+      },
+      {
+        "x": 87.9,
+        "y0": 123.3,
+        "y1": 313.2
+      },
+      {
+        "x": 223.7,
+        "y0": 606.7,
+        "y1": 667.4
+      },
+      {
+        "x": 258.5,
+        "y0": 340.2,
+        "y1": 554.1
+      },
+      {
+        "x": 300.9,
+        "y0": 340.2,
+        "y1": 554.1
+      },
+      {
+        "x": 310.7,
+        "y0": 95.0,
+        "y1": 313.2
+      },
+      {
+        "x": 323.0,
+        "y0": 606.2,
+        "y1": 667.9
+      },
+      {
+        "x": 343.4,
+        "y0": 340.2,
+        "y1": 554.1
+      },
+      {
+        "x": 368.0,
+        "y0": 123.3,
+        "y1": 313.2
+      },
+      {
+        "x": 379.9,
+        "y0": 340.2,
+        "y1": 554.1
+      },
+      {
+        "x": 386.1,
+        "y0": 607.3,
+        "y1": 801.3
+      },
+      {
+        "x": 422.2,
+        "y0": 339.7,
+        "y1": 554.6
+      },
+      {
+        "x": 429.4,
+        "y0": 358.8,
+        "y1": 499.0
+      },
+      {
+        "x": 478.6,
+        "y0": 376.5,
+        "y1": 498.5
+      },
+      {
+        "x": 481.4,
+        "y0": 607.3,
+        "y1": 801.3
+      },
+      {
+        "x": 515.3,
+        "y0": 376.5,
+        "y1": 498.5
+      },
+      {
+        "x": 526.6,
+        "y0": 607.3,
+        "y1": 801.3
+      },
+      {
+        "x": 577.0,
+        "y0": 94.7,
+        "y1": 313.4
+      },
+      {
+        "x": 589.2,
+        "y0": 358.8,
+        "y1": 499.0
+      }
+    ],
+    "separateurs_horizontaux": [
+      {
+        "y": 94.9,
+        "x0": 23.5,
+        "x1": 577.2
+      },
+      {
+        "y": 109.3,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 123.5,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 140.5,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 157.5,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 178.7,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 207.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 224.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 241.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 258.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 275.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 292.1,
+        "x0": 23.7,
+        "x1": 576.8
+      },
+      {
+        "y": 313.3,
+        "x0": 23.5,
+        "x1": 577.2
+      },
+      {
+        "y": 335.6,
+        "x0": 21.4,
+        "x1": 526.6
+      },
+      {
+        "y": 340.0,
+        "x0": 20.0,
+        "x1": 422.5
+      },
+      {
+        "y": 357.0,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 359.1,
+        "x0": 429.1,
+        "x1": 589.5
+      },
+      {
+        "y": 371.1,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 376.8,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 385.2,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 394.4,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 399.3,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 412.1,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 413.4,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 427.5,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 429.7,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 441.6,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 447.4,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 455.7,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 465.0,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 469.8,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 482.7,
+        "x0": 429.6,
+        "x1": 589.0
+      },
+      {
+        "y": 483.9,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 498.0,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 512.1,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 526.2,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 540.3,
+        "x0": 20.5,
+        "x1": 422.0
+      },
+      {
+        "y": 554.4,
+        "x0": 20.0,
+        "x1": 422.5
+      },
+      {
+        "y": 594.0,
+        "x0": 73.5,
+        "x1": 239.3
+      },
+      {
+        "y": 606.5,
+        "x0": 25.0,
+        "x1": 323.2
+      },
+      {
+        "y": 621.8,
+        "x0": 25.5,
+        "x1": 322.8
+      },
+      {
+        "y": 623.6,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 637.1,
+        "x0": 25.5,
+        "x1": 322.8
+      },
+      {
+        "y": 641.2,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 652.4,
+        "x0": 25.5,
+        "x1": 322.8
+      },
+      {
+        "y": 658.9,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 667.7,
+        "x0": 25.0,
+        "x1": 323.2
+      },
+      {
+        "y": 675.2,
+        "x0": 24.5,
+        "x1": 283.0
+      },
+      {
+        "y": 676.5,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 690.2,
+        "x0": 95.3,
+        "x1": 282.5
+      },
+      {
+        "y": 694.2,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 704.4,
+        "x0": 25.0,
+        "x1": 283.0
+      },
+      {
+        "y": 711.8,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 729.5,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 747.1,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 764.8,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 783.2,
+        "x0": 368.1,
+        "x1": 577.2
+      },
+      {
+        "y": 801.6,
+        "x0": 367.6,
+        "x1": 577.7
+      }
+    ]
   },
   "sexe_adherent": {
     "_comment": "Le bandeau sexe ne comporte PAS de case imprimée : ce sont les cellules du tableau qui servent de case (on coche/croise dans la cellule). Case Homme = cellule après le texte 'Homme' (x 113-163.2) ; case Femme = cellule après le texte 'Femme' (x 256-286.5).",
-    "ligne_y": [109.3, 123.5],
+    "ligne_y": [
+      109.3,
+      123.5
+    ],
     "cases": {
-      "Homme": {"x": [113.0, 163.2]},
-      "Femme": {"x": [256.0, 286.5]}
+      "Homme": {
+        "x": [
+          113.0,
+          163.2
+        ]
+      },
+      "Femme": {
+        "x": [
+          256.0,
+          286.5
+        ]
+      }
     }
   },
   "sexe_representant": {
     "_comment": "Même principe : case Homme = cellule après 'Homme' (x 392-433.2), case Femme = cellule après 'Femme' (x 522-554.9).",
-    "ligne_y": [109.3, 123.5],
+    "ligne_y": [
+      109.3,
+      123.5
+    ],
     "cases": {
-      "Homme": {"x": [392.0, 433.2]},
-      "Femme": {"x": [522.0, 554.9]}
+      "Homme": {
+        "x": [
+          392.0,
+          433.2
+        ]
+      },
+      "Femme": {
+        "x": [
+          522.0,
+          554.9
+        ]
+      }
     }
   },
   "coordonnes_adherent": {
     "_comment": "Zone de saisie = entre le separateur vertical des intitules (x=87.9) et la fin de la colonne adherent (x=310.7). Chaque champ = bande verticale entre deux separateurs horizontaux.",
-    "x_saisie": [88.5, 310.0],
+    "x_saisie": [
+      88.5,
+      310.0
+    ],
     "champs": {
-      "nom":              {"y": [123.5, 140.5]},
-      "prenom":           {"y": [140.5, 157.5]},
-      "date_naissance":   {"y": [157.5, 178.7]},
-      "adresse":          {"y": [178.7, 207.1]},
-      "code_postal":      {"y": [207.1, 224.1]},
-      "ville":            {"y": [224.1, 241.1]},
-      "telephone":        {"y": [241.1, 258.1]},
-      "email":            {"y": [258.1, 275.1]},
-      "nationalite":      {"y": [275.1, 292.1]},
-      "famille":          {"y": [292.1, 313.3], "x": [88.5, 224.8]},
-      "rattachement_famille_ON": {"y": [292.1, 313.3], "x": [255.0, 285.0], "type": "case_O_N"},
-      "ancien_club":      {"y": [292.1, 313.3], "x": [418.7, 577.0]}
+      "nom": {
+        "y": [
+          123.5,
+          140.5
+        ]
+      },
+      "prenom": {
+        "y": [
+          140.5,
+          157.5
+        ]
+      },
+      "date_naissance": {
+        "y": [
+          157.5,
+          178.7
+        ]
+      },
+      "adresse": {
+        "y": [
+          178.7,
+          207.1
+        ]
+      },
+      "code_postal": {
+        "y": [
+          207.1,
+          224.1
+        ]
+      },
+      "ville": {
+        "y": [
+          224.1,
+          241.1
+        ]
+      },
+      "telephone": {
+        "y": [
+          241.1,
+          258.1
+        ]
+      },
+      "email": {
+        "y": [
+          258.1,
+          275.1
+        ]
+      },
+      "nationalite": {
+        "y": [
+          275.1,
+          292.1
+        ]
+      },
+      "famille": {
+        "y": [
+          292.1,
+          313.3
+        ],
+        "x": [
+          88.5,
+          224.8
+        ]
+      },
+      "rattachement_famille_ON": {
+        "y": [
+          292.1,
+          313.3
+        ],
+        "x": [
+          255.0,
+          285.0
+        ],
+        "type": "case_O_N"
+      },
+      "ancien_club": {
+        "y": [
+          292.1,
+          313.3
+        ],
+        "x": [
+          418.7,
+          577.0
+        ]
+      }
     }
   },
   "coordonnes_representant": {
-    "x_saisie": [368.5, 577.0],
+    "x_saisie": [
+      368.5,
+      577.0
+    ],
     "champs": {
-      "nom":              {"y": [123.5, 140.5]},
-      "prenom":           {"y": [140.5, 157.5]},
-      "date_naissance":   {"y": [157.5, 178.7]},
-      "adresse":          {"y": [178.7, 207.1]},
-      "code_postal":      {"y": [207.1, 224.1]},
-      "ville":            {"y": [224.1, 241.1]},
-      "telephone":        {"y": [241.1, 258.1]},
-      "email":            {"y": [258.1, 275.1]},
-      "nationalite":      {"y": [275.1, 292.1]}
+      "nom": {
+        "y": [
+          123.5,
+          140.5
+        ]
+      },
+      "prenom": {
+        "y": [
+          140.5,
+          157.5
+        ]
+      },
+      "date_naissance": {
+        "y": [
+          157.5,
+          178.7
+        ]
+      },
+      "adresse": {
+        "y": [
+          178.7,
+          207.1
+        ]
+      },
+      "code_postal": {
+        "y": [
+          207.1,
+          224.1
+        ]
+      },
+      "ville": {
+        "y": [
+          224.1,
+          241.1
+        ]
+      },
+      "telephone": {
+        "y": [
+          241.1,
+          258.1
+        ]
+      },
+      "email": {
+        "y": [
+          258.1,
+          275.1
+        ]
+      },
+      "nationalite": {
+        "y": [
+          275.1,
+          292.1
+        ]
+      }
     }
   },
   "formules": {
-    "_comment": "14 formules, lignes du tableau entre y=357.0 et y=554.4 (pas ~14.1 pt). Colonne Choix = x 20.3-51.2 : la case a cocher est la cellule elle-meme (pas de carre imprime ; la coche/croix manuscrite remplit la cellule).",
-    "choix_x": [20.3, 51.2],
-    "lignes_y": [357.0, 371.1, 385.2, 399.3, 413.4, 427.5, 441.6, 455.7, 469.8, 483.9, 498.0, 512.1, 526.2, 540.3, 554.4],
+    "_comment": "14 formules. Bornes exactes des 15 separateurs horizontaux du tableau (x 20.5-422), extraites du modele V12. Colonne Choix = entre les verticales x=20.3 et x=51.2 : pas de carre imprime, la croix manuscrite est posee dans la cellule. La zone de detection utilise l'interieur de la colonne (x 22.0-49.0) pour eviter les lignes verticales de bord.",
+    "choix_x": [
+      22.0,
+      49.0
+    ],
+    "bornes_y": [
+      356.95,
+      371.05,
+      385.15,
+      399.25,
+      413.35,
+      427.45,
+      441.55,
+      455.65,
+      469.75,
+      483.85,
+      497.95,
+      512.05,
+      526.15,
+      540.25,
+      554.35
+    ],
+    "lignes_y": [
+      357.0,
+      371.1,
+      385.2,
+      399.3,
+      413.4,
+      427.5,
+      441.6,
+      455.7,
+      469.8,
+      483.9,
+      498.0,
+      512.1,
+      526.2,
+      540.3,
+      554.4
+    ],
     "formules": [
-      {"id": "baby_1h",               "nom": "Tennis Baby 1h",                              "total": 130},
-      {"id": "enfant_ecole_1h",       "nom": "Tennis Enfant - Ecole de tennis 1h",          "total": 175},
-      {"id": "enfant_competition_2h", "nom": "Tennis Enfant - Ecole de tennis competition 2h", "total": 275},
-      {"id": "ados_1h30",             "nom": "Tennis Ados 1h30",                            "total": 195},
-      {"id": "ados_competition_3h",   "nom": "Tennis Ados competition 3h",                  "total": 300},
-      {"id": "ados_pole_4h",          "nom": "Tennis Ados - Pole competition 4h",           "total": 360},
-      {"id": "adulte_1h30",           "nom": "Tennis Adulte 1h30",                          "total": 300},
-      {"id": "adulte_couple_1h30",    "nom": "Tennis Adulte couple 1h30",                   "total": 280},
-      {"id": "adhesion_seule",        "nom": "Adhesion seule",                              "total": 40},
-      {"id": "adulte_loisir",         "nom": "Tennis Adulte loisir / Parent accompagnateur","total": 120},
-      {"id": "adulte_loisir_couple",  "nom": "Tennis Adulte loisir couple",                 "total": 100},
-      {"id": "padel_illimite",        "nom": "Padel illimite",                              "total": 400},
-      {"id": "padel_tennis_loisir",   "nom": "Padel illimite + Tennis Loisir",              "total": 430},
-      {"id": "padel_tennis_adulte",   "nom": "Padel illimite + Tennis Adulte 1h30",         "total": 610}
+      {
+        "id": "baby_1h",
+        "nom": "Tennis Baby 1h",
+        "total": 130
+      },
+      {
+        "id": "enfant_ecole_1h",
+        "nom": "Tennis Enfant - Ecole de tennis 1h",
+        "total": 175
+      },
+      {
+        "id": "enfant_competition_2h",
+        "nom": "Tennis Enfant - Ecole de tennis competition 2h",
+        "total": 275
+      },
+      {
+        "id": "ados_1h30",
+        "nom": "Tennis Ados 1h30",
+        "total": 195
+      },
+      {
+        "id": "ados_competition_3h",
+        "nom": "Tennis Ados competition 3h",
+        "total": 300
+      },
+      {
+        "id": "ados_pole_4h",
+        "nom": "Tennis Ados - Pole competition 4h",
+        "total": 360
+      },
+      {
+        "id": "adulte_1h30",
+        "nom": "Tennis Adulte 1h30",
+        "total": 300
+      },
+      {
+        "id": "adulte_couple_1h30",
+        "nom": "Tennis Adulte couple 1h30",
+        "total": 280
+      },
+      {
+        "id": "adhesion_seule",
+        "nom": "Adhesion seule",
+        "total": 40
+      },
+      {
+        "id": "adulte_loisir",
+        "nom": "Tennis Adulte loisir / Parent accompagnateur",
+        "total": 120
+      },
+      {
+        "id": "adulte_loisir_couple",
+        "nom": "Tennis Adulte loisir couple",
+        "total": 100
+      },
+      {
+        "id": "padel_illimite",
+        "nom": "Padel illimite",
+        "total": 400
+      },
+      {
+        "id": "padel_tennis_loisir",
+        "nom": "Padel illimite + Tennis Loisir",
+        "total": 430
+      },
+      {
+        "id": "padel_tennis_adulte",
+        "nom": "Padel illimite + Tennis Adulte 1h30",
+        "total": 610
+      }
     ]
   },
   "disponibilites": {
     "_comment": "Tableau 'Cours de tennis' a droite du tableau des formules. Saisie LIBRE (pas de cases) : colonnes Ordre (x 478.6-515.3) et Disponibilites (x 515.3-589.2), lignes Lundi a Samedi entre les separateurs horizontaux y=376.8, 394.4, 412.1, 429.7, 447.4, 465.0, 482.7.",
-    "jours": ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
-    "x_jour": [429.4, 478.6],
-    "x_ordre": [478.6, 515.3],
-    "x_disponibilites": [515.3, 589.2],
-    "lignes_y": [394.4, 412.1, 429.7, 447.4, 465.0, 482.7, 498.8],
+    "jours": [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi"
+    ],
+    "x_jour": [
+      429.4,
+      478.6
+    ],
+    "x_ordre": [
+      478.6,
+      515.3
+    ],
+    "x_disponibilites": [
+      515.3,
+      589.2
+    ],
+    "lignes_y": [
+      394.4,
+      412.1,
+      429.7,
+      447.4,
+      465.0,
+      482.7,
+      498.8
+    ],
     "_comment_lignes": "7 séparateurs pour 6 lignes de jours (Lundi=394.4-412.1 ... Samedi=482.7-498.8). La ligne d'en-tête Jours/Ordre/Disponibilités (y 376.8-394.4) est exclue."
   },
   "paiement": {
     "_comment": "Cases du moyen de paiement : cellules du tableau x 24.7-282.7, y 675.2-704.4. La coche manuscrite remplit la cellule.",
     "cases": {
-      "CB":       {"x": [95.6, 126.8]},
-      "Virement": {"x": [126.8, 186.2]},
-      "Cheque":   {"x": [186.2, 231.4]},
-      "Espece":   {"x": [231.4, 282.7]}
+      "CB": {
+        "x": [
+          95.6,
+          126.8
+        ]
+      },
+      "Virement": {
+        "x": [
+          126.8,
+          186.2
+        ]
+      },
+      "Cheque": {
+        "x": [
+          186.2,
+          231.4
+        ]
+      },
+      "Espece": {
+        "x": [
+          231.4,
+          282.7
+        ]
+      }
     },
-    "y": [675.2, 704.4]
+    "y": [
+      675.2,
+      704.4
+    ]
   },
   "montants_bureau": {
     "_comment": "Zone reservee au bureau (ne pas OCRiser en priorite).",
-    "montant_total_avant_remise": {"x": [73.5, 239.2], "y": [580.2, 595.7]},
-    "montant_avec_remise":        {"x": [25.5, 223.7], "y": [606.5, 621.8]},
-    "montant_profs":              {"x": [25.5, 223.7], "y": [621.8, 637.1]},
-    "montant_total_remise":       {"x": [25.5, 223.7], "y": [637.1, 652.4]},
-    "cheques_tableau":            {"x": [367.9, 577.4], "y": [606.8, 801.8]}
+    "montant_total_avant_remise": {
+      "x": [
+        73.5,
+        239.2
+      ],
+      "y": [
+        580.2,
+        595.7
+      ]
+    },
+    "montant_avec_remise": {
+      "x": [
+        25.5,
+        223.7
+      ],
+      "y": [
+        606.5,
+        621.8
+      ]
+    },
+    "montant_profs": {
+      "x": [
+        25.5,
+        223.7
+      ],
+      "y": [
+        621.8,
+        637.1
+      ]
+    },
+    "montant_total_remise": {
+      "x": [
+        25.5,
+        223.7
+      ],
+      "y": [
+        637.1,
+        652.4
+      ]
+    },
+    "cheques_tableau": {
+      "x": [
+        367.9,
+        577.4
+      ],
+      "y": [
+        606.8,
+        801.8
+      ]
+    }
   }
 }
