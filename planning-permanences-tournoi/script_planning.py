@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Génération du planning de permanences — Tournoi de tennis (17/10 -> 7/11)
@@ -13,7 +14,9 @@ Ce script :
          la colonne "Soir+Matin" est aussi cochée (facultatif, 2 colonnes
          placées juste après le NOM dans Feuil1),
        - au plus MAX_TOTAL (6) permanences par personne sur tout le tournoi,
-       - au plus MAX_PAR_SEMAINE (4) permanences par personne et par semaine,
+       - au plus MAX_PAR_SEMAINE (4) permanences par personne sur 7 jours
+         glissants (fenêtre de 7 jours consécutifs, chevauchant les semaines
+         du tableau),
        - minimise le nombre de créneaux non couverts,
        - priorise les personnes ayant proposé le moins de disponibilités,
        - répartit la charge au maximum entre les personnes.
@@ -49,7 +52,7 @@ LABELS_SLOTS = ["A 9h-13h", "B 13h-17h", "C 17h-21h", "D 21h-fin"]
 
 # plafonds de charge par personne
 MAX_TOTAL = 6        # permanences max sur la durée du tournoi
-MAX_PAR_SEMAINE = 4  # permanences max par semaine (bloc de 6 jours + finale)
+MAX_PAR_SEMAINE = 4  # permanences max sur 7 jours glissants
 
 JOUR_RE = re.compile(r"^\S.*\d{1,2}/\d{1,2}")  # ex. "Sam 17/10"
 SLOT_VALS = {"9-13", "13-17", "17-21", "21-fin"}
@@ -234,17 +237,29 @@ def resoudre(jours, dispos, avec_site2, options=None):
                 for v in v1 + v2:
                     row[v] = 1
                 A.append(row); lb.append(-np.inf); ub.append(1)
-            elif not da_ok:
-                # 2 jours de suite autorisés, mais jamais D puis A
-                vd = [vi for (nn, dd, s, site), vi in idx.items()
-                      if nn == n and dd == d and s == jours[d]["nslots"] - 1]
-                va = [vi for (nn, dd, s, site), vi in idx.items()
-                      if nn == n and dd == d + 1 and s == 0]
-                if vd and va:
-                    row = np.zeros(nTot)
-                    for v in vd + va:
-                        row[v] = 1
-                    A.append(row); lb.append(-np.inf); ub.append(1)
+            else:
+                # 2 jours de suite autorisés, mais JAMAIS 3 jours de suite :
+                # au plus 2 créneaux sur n'importe quelle fenêtre de 3 jours
+                # consécutifs (contrôle sur l'intégralité du tournoi).
+                if d <= nD - 3:
+                    v3 = [vi for (nn, dd, s, site), vi in idx.items()
+                          if nn == n and dd in (d, d + 1, d + 2)]
+                    if v3:
+                        row = np.zeros(nTot)
+                        for v in v3:
+                            row[v] = 1
+                        A.append(row); lb.append(-np.inf); ub.append(2)
+                if not da_ok:
+                    # jamais l'enchainement D (21h-fin) puis A (9h-13h)
+                    vd = [vi for (nn, dd, s, site), vi in idx.items()
+                          if nn == n and dd == d and s == jours[d]["nslots"] - 1]
+                    va = [vi for (nn, dd, s, site), vi in idx.items()
+                          if nn == n and dd == d + 1 and s == 0]
+                    if vd and va:
+                        row = np.zeros(nTot)
+                        for v in vd + va:
+                            row[v] = 1
+                        A.append(row); lb.append(-np.inf); ub.append(1)
     # charge <= max global (équilibrage, phase suivante)
     perpers = defaultdict(list)
     for (n, d, s, site), vi in idx.items():
@@ -261,15 +276,18 @@ def resoudre(jours, dispos, avec_site2, options=None):
         for v in vs:
             row[v] = 1
         A.append(row); lb.append(-np.inf); ub.append(MAX_TOTAL)
-    # plafond hebdomadaire : au plus MAX_PAR_SEMAINE par bloc de 6 jours
-    persem = defaultdict(list)
-    for (n, d, s, site), vi in idx.items():
-        persem[(n, min(d // 6, 3))].append(vi)
-    for vs in persem.values():
-        row = np.zeros(nTot)
-        for v in vs:
-            row[v] = 1
-        A.append(row); lb.append(-np.inf); ub.append(MAX_PAR_SEMAINE)
+    # plafond glissant : au plus MAX_PAR_SEMAINE sur 7 jours consécutifs
+    # (fenêtre glissante sur toute la durée, indépendamment des blocs
+    # du tableau : impossible de contourner le plafond à cheval sur 2 semaines)
+    for n in noms:
+        for d0 in range(nD - 6):
+            vs = [vi for (nn, dd, s, site), vi in idx.items()
+                  if nn == n and d0 <= dd < d0 + 7]
+            if len(vs) > MAX_PAR_SEMAINE:
+                row = np.zeros(nTot)
+                for v in vs:
+                    row[v] = 1
+                A.append(row); lb.append(-np.inf); ub.append(MAX_PAR_SEMAINE)
 
     cons = LinearConstraint(np.array(A), lb, ub)
     integrality = np.ones(nTot)
@@ -423,24 +441,29 @@ def ecrire_planning(wb, nom_feuille, jours, affect, non_couverts, charge,
     tete.alignment = CENTRE
     tete.border = BORD
     for col, txt in ((2, f"Total (max {MAX_TOTAL})"),
-                     (3, f"Sem (max {MAX_PAR_SEMAINE})")):
+                     (3, f"7j gliss. (max {MAX_PAR_SEMAINE})")):
         c2 = ws.cell(row=row, column=col, value=txt)
         c2.font = Font(bold=True, color="FFFFFF")
         c2.fill = ENTETE_FILL
         c2.alignment = CENTRE
         c2.border = BORD
     row += 1
-    sem_par_pers = defaultdict(lambda: defaultdict(int))
-    for (d, s, site), noms_slot in affect.items():
-        for n in noms_slot:
-            sem_par_pers[n][min(d // 6, 3)] += 1
+    # max sur 7 jours glissants (même règle que le solveur)
+    nJ = len(jours)
+    glisse = defaultdict(int)
+    for n in charge:
+        jours_pers = sorted({d for (d, s, site), noms_slot in affect.items()
+                             if n in noms_slot})
+        for d0 in range(max(0, nJ - 6)):
+            nb = sum(1 for d in jours_pers if d0 <= d < d0 + 7)
+            glisse[n] = max(glisse[n], nb)
     for n in sorted(charge, key=lambda x: (-charge[x], x)):
         ws.cell(row=row, column=1, value=n).border = BORD
         ct = ws.cell(row=row, column=2, value=charge[n])
         ct.alignment, ct.border = CENTRE, BORD
         if charge[n] >= MAX_TOTAL:
             ct.font = Font(bold=True, color="C00000")
-        maxi = max(sem_par_pers[n].values()) if sem_par_pers[n] else 0
+        maxi = glisse.get(n, 0)
         cs = ws.cell(row=row, column=3, value=maxi)
         cs.alignment, cs.border = CENTRE, BORD
         if maxi >= MAX_PAR_SEMAINE:
