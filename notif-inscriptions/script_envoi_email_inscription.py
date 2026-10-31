@@ -778,6 +778,7 @@ def generate_pdf(content, pdf_filename, output_dir=None):
         except Exception as e:
             logger.warning(f"⚠️ Impossible d'intégrer le logo dans le PDF: {e}")
 
+    logger.info("✉️ generate_pdf : intégration du logo terminée, appel de WeasyPrint...")
     pdf_path = os.path.join(output_dir, pdf_filename) if output_dir else pdf_filename
     if output_dir:
         # ✅ Robustesse : créer le répertoire de sortie s'il a disparu
@@ -786,7 +787,12 @@ def generate_pdf(content, pdf_filename, output_dir=None):
             os.makedirs(output_dir, exist_ok=True)
         except Exception as e:
             logger.warning(f"⚠️ Impossible de créer le répertoire de sortie des PDF ({output_dir}) : {e}")
-    HTML(string=content).write_pdf(pdf_path)
+    try:
+        HTML(string=content).write_pdf(pdf_path)
+    except Exception:
+        logger.error(f"❌ WeasyPrint a échoué pour {pdf_path}", exc_info=True)
+        raise
+    logger.info(f"✉️ generate_pdf : PDF écrit ({pdf_path})")
     return pdf_path
 
 # --- FONCTION D'ENVOI D'EMAIL ---
