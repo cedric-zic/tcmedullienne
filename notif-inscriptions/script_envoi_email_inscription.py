@@ -760,6 +760,49 @@ def update_fiche_numerisee_status(ods_file, row_index, status, test_mode=False, 
 #     pdf_path = os.path.join(output_dir, pdf_filename) if output_dir else pdf_filename
 #     HTML(string=content).write_pdf(pdf_path)
 #     return pdf_path
+# --- SUBSTITUTION DES EMOJIS POUR LES PDF (WeasyPrint) ---
+# WeasyPrint peut se bloquer indéfiniment (hang silencieux, sans exception) lors
+# de la résolution de la police de repli emoji par pango sous Windows. Les emails
+# HTML restent inchangés : la substitution ne s'applique qu'aux PDF générés
+# par generate_pdf (mode test).
+
+import re as _re
+
+# Équivalents texte des emojis utilisés dans les corps de message
+_EMOJI_SUBSTITUTIONS = {
+    "\u2705": "[OK]",
+    "\u274C": "[X]",
+    "\u2714": "[OK]",
+    "\u2716": "[X]",
+    "\u2713": "[OK]",
+    "\u2717": "[X]",
+    "\u26A0\uFE0F": "[!]",
+    "\u26A0": "[!]",
+    "\u2139\uFE0F": "[i]",
+    "\u2139": "[i]",
+    "\U0001F4C4": "[document]",
+    "\U0001F4B0": "[paiement]",
+    "\U0001F3AF": "[objectif]",
+    "\U0001F680": "[info]",
+}
+
+# Plages emojis/symboles restant sans substitution explicite
+_EMOJI_PATTERN = _re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"
+    "\u2600-\u27BF"
+    "\u2190-\u21FF"
+    "\uFE0F"
+    "]+"
+)
+
+def sans_emojis_pour_pdf(content):
+    """Remplace les emojis par des équivalents texte pour le rendu PDF
+    (WeasyPrint/pango peut se bloquer sur la résolution des emojis)."""
+    for emoji, remplacement in _EMOJI_SUBSTITUTIONS.items():
+        content = content.replace(emoji, remplacement)
+    return _EMOJI_PATTERN.sub("", content)
+
 def generate_pdf(content, pdf_filename, output_dir=None):
     """
     Génère un PDF à partir du HTML, en remplaçant le chemin du logo par son contenu binaire.
@@ -778,7 +821,10 @@ def generate_pdf(content, pdf_filename, output_dir=None):
         except Exception as e:
             logger.warning(f"⚠️ Impossible d'intégrer le logo dans le PDF: {e}")
 
-    logger.info("✉️ generate_pdf : intégration du logo terminée, appel de WeasyPrint...")
+    # ✅ Correctif : substituer les emojis avant le rendu (hang WeasyPrint/pango
+    # observé sous Windows lors de la résolution de la police emoji).
+    content = sans_emojis_pour_pdf(content)
+    logger.info("✉️ generate_pdf : emojis substitués, appel de WeasyPrint...")
     pdf_path = os.path.join(output_dir, pdf_filename) if output_dir else pdf_filename
     if output_dir:
         # ✅ Robustesse : créer le répertoire de sortie s'il a disparu
