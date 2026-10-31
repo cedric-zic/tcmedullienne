@@ -779,6 +779,13 @@ def generate_pdf(content, pdf_filename, output_dir=None):
             logger.warning(f"⚠️ Impossible d'intégrer le logo dans le PDF: {e}")
 
     pdf_path = os.path.join(output_dir, pdf_filename) if output_dir else pdf_filename
+    if output_dir:
+        # ✅ Robustesse : créer le répertoire de sortie s'il a disparu
+        # (déplacement du dépôt / réorganisation des répertoires).
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+        except Exception as e:
+            logger.warning(f"⚠️ Impossible de créer le répertoire de sortie des PDF ({output_dir}) : {e}")
     HTML(string=content).write_pdf(pdf_path)
     return pdf_path
 
@@ -853,7 +860,16 @@ def send_email(to_email, subject, html_body, attachment_path=None, test_mode=Fal
     pdf_filename = normalize_name(nom, prenom, prefix="Votre_adhesion_2026")
 
     if test_mode:
-        pdf_path = generate_pdf(html_body, pdf_filename, ATTACHMENTS_DIR)
+        # ✅ Diagnostic : WeasyPrint dépend de bibliothèques natives (pango/gobject,
+        # DLL sous Windows). Si elles ne se chargent pas dans le venv, l'appel meurt
+        # sans traceback exploitable. On journalise clairement l'échec au lieu de
+        # laisser le script s'interrompre en silence.
+        logger.info(f"✉️ Préparation du PDF de test pour {to_email}...")
+        try:
+            pdf_path = generate_pdf(html_body, pdf_filename, ATTACHMENTS_DIR)
+        except Exception as e:
+            logger.error(f"❌ Échec de génération du PDF (WeasyPrint) pour {to_email} : {e}", exc_info=True)
+            return False
         logger.info(f"📄 PDF généré pour {to_email} : {pdf_path}")
         return True
 
